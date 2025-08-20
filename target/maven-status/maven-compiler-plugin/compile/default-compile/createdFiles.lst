@@ -1,7 +1,11 @@
+com\mybookshelf\mybookshelf_backend\repository\GenreRepository.class
 com\mybookshelf\mybookshelf_backend\model\Author.class
 com\mybookshelf\mybookshelf_backend\model\ReadingMood.class
 com\mybookshelf\mybookshelf_backend\MybookshelfBackendApplication.class
 com\mybookshelf\mybookshelf_backend\model\ReadingSession.class
+com\mybookshelf\mybookshelf_backend\repository\AuthorRepository.class
+com\mybookshelf\mybookshelf_backend\repository\BookRepository.class
+com\mybookshelf\mybookshelf_backend\repository\ReadingSessionRepository.class
 com\mybookshelf\mybookshelf_backend\config\SecurityConfig.class
 com\mybookshelf\mybookshelf_backend\model\Book.class
 com\mybookshelf\mybookshelf_backend\model\BookStatus.class
