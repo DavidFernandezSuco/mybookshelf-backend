@@ -9,6 +9,8 @@ import org.hibernate.annotations.UpdateTimestamp;   // Timestamp automático de 
 import java.math.BigDecimal;  // Para números decimales precisos (rating)
 import java.time.LocalDate;   // Para fechas (sin hora)
 import java.time.LocalDateTime; // Para fechas con hora exacta
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * CLASE BOOK - Entidad Principal del Sistema
@@ -168,6 +170,30 @@ public class Book {
      */
     @Column(name = "finish_date")
     private LocalDate finishDate;
+
+    // ========================================
+// RELACIONES JPA
+// ========================================
+
+    /**
+     * AUTHORS - Autores que escribieron este libro
+     *
+     * RELACIÓN MANY-TO-MANY:
+     * - Un libro puede tener múltiples autores (ej: Good Omens por Pratchett & Gaiman)
+     * - Un autor puede escribir múltiples libros
+     *
+     * @ManyToMany - Relación Many-to-Many
+     * @JoinTable - Define la tabla intermedia "book_authors"
+     * joinColumns - Clave foránea hacia Book (book_id)
+     * inverseJoinColumns - Clave foránea hacia Author (author_id)
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "book_authors",
+            joinColumns = @JoinColumn(name = "book_id"),
+            inverseJoinColumns = @JoinColumn(name = "author_id")
+    )
+    private Set<Author> authors = new HashSet<>();
 
     // ========================================
     // TIMESTAMPS AUTOMÁTICOS
@@ -402,6 +428,35 @@ public class Book {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    // AUTHORS
+    public Set<Author> getAuthors() {
+        return authors;
+    }
+
+    public void setAuthors(Set<Author> authors) {
+        this.authors = authors;
+    }
+
+    /**
+     * Añade un autor al libro manteniendo relación bidireccional
+     */
+    public void addAuthor(Author author) {
+        if (author != null) {
+            authors.add(author);
+            author.getBooks().add(this);
+        }
+    }
+
+    /**
+     * Remueve un autor del libro manteniendo relación bidireccional
+     */
+    public void removeAuthor(Author author) {
+        if (author != null) {
+            authors.remove(author);
+            author.getBooks().remove(this);
+        }
     }
 
     // ========================================

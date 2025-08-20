@@ -1,3 +1,5 @@
+com\mybookshelf\mybookshelf_backend\config\SecurityConfig.class
+com\mybookshelf\mybookshelf_backend\model\Author.class
 com\mybookshelf\mybookshelf_backend\model\Book.class
 com\mybookshelf\mybookshelf_backend\model\BookStatus.class
 com\mybookshelf\mybookshelf_backend\MybookshelfBackendApplication.class
