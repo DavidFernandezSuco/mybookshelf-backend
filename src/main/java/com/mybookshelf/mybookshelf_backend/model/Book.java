@@ -195,6 +195,21 @@ public class Book {
     )
     private Set<Author> authors = new HashSet<>();
 
+    /**
+     * GENRES - Géneros a los que pertenece este libro
+     *
+     * RELACIÓN MANY-TO-MANY:
+     * - Un libro puede pertenecer a múltiples géneros (ej: Dune = Ciencia Ficción + Aventura)
+     * - Un género puede tener múltiples libros
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "book_genres",
+            joinColumns = @JoinColumn(name = "book_id"),
+            inverseJoinColumns = @JoinColumn(name = "genre_id")
+    )
+    private Set<Genre> genres = new HashSet<>();
+
     // ========================================
     // TIMESTAMPS AUTOMÁTICOS
     // ========================================
@@ -437,6 +452,35 @@ public class Book {
 
     public void setAuthors(Set<Author> authors) {
         this.authors = authors;
+    }
+
+    // GENRES
+    public Set<Genre> getGenres() {
+        return genres;
+    }
+
+    public void setGenres(Set<Genre> genres) {
+        this.genres = genres;
+    }
+
+    /**
+     * Añade un género al libro manteniendo relación bidireccional
+     */
+    public void addGenre(Genre genre) {
+        if (genre != null) {
+            genres.add(genre);
+            genre.getBooks().add(this);
+        }
+    }
+
+    /**
+     * Remueve un género del libro manteniendo relación bidireccional
+     */
+    public void removeGenre(Genre genre) {
+        if (genre != null) {
+            genres.remove(genre);
+            genre.getBooks().remove(this);
+        }
     }
 
     /**
