@@ -10,3 +10,8 @@ C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshel
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\repository\BookRepository.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\repository\GenreRepository.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\repository\ReadingSessionRepository.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\service\AnalyticsService.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\service\AuthorService.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\service\BookService.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\service\GenreService.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\service\ReadingSessionService.java
