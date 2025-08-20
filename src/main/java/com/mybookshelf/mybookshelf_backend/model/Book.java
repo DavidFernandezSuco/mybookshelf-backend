@@ -9,7 +9,9 @@ import org.hibernate.annotations.UpdateTimestamp;   // Timestamp automático de 
 import java.math.BigDecimal;  // Para números decimales precisos (rating)
 import java.time.LocalDate;   // Para fechas (sin hora)
 import java.time.LocalDateTime; // Para fechas con hora exacta
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -209,6 +211,16 @@ public class Book {
             inverseJoinColumns = @JoinColumn(name = "genre_id")
     )
     private Set<Genre> genres = new HashSet<>();
+
+    /**
+     * READING_SESSIONS - Sesiones de lectura de este libro
+     *
+     * RELACIÓN ONE-TO-MANY:
+     * - Un libro puede tener muchas sesiones de lectura
+     * - Una sesión pertenece a un libro específico
+     */
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReadingSession> readingSessions = new ArrayList<>();
 
     // ========================================
     // TIMESTAMPS AUTOMÁTICOS
@@ -461,6 +473,35 @@ public class Book {
 
     public void setGenres(Set<Genre> genres) {
         this.genres = genres;
+    }
+
+    // READING_SESSIONS
+    public List<ReadingSession> getReadingSessions() {
+        return readingSessions;
+    }
+
+    public void setReadingSessions(List<ReadingSession> readingSessions) {
+        this.readingSessions = readingSessions;
+    }
+
+    /**
+     * Añade una sesión de lectura al libro
+     */
+    public void addReadingSession(ReadingSession session) {
+        if (session != null) {
+            readingSessions.add(session);
+            session.setBook(this);
+        }
+    }
+
+    /**
+     * Remueve una sesión de lectura del libro
+     */
+    public void removeReadingSession(ReadingSession session) {
+        if (session != null) {
+            readingSessions.remove(session);
+            session.setBook(null);
+        }
     }
 
     /**
