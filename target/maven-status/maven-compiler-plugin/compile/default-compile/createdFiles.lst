@@ -2,14 +2,17 @@ com\mybookshelf\mybookshelf_backend\service\AnalyticsService$MonthlyProgressDTO.
 com\mybookshelf\mybookshelf_backend\repository\GenreRepository.class
 com\mybookshelf\mybookshelf_backend\service\AnalyticsService$DashboardStatsDTO.class
 com\mybookshelf\mybookshelf_backend\MybookshelfBackendApplication.class
+com\mybookshelf\mybookshelf_backend\dto\GenreDTO.class
 com\mybookshelf\mybookshelf_backend\service\BookService$BookStatistics.class
 com\mybookshelf\mybookshelf_backend\model\ReadingSession.class
 com\mybookshelf\mybookshelf_backend\service\AuthorService$AuthorStatistics.class
 com\mybookshelf\mybookshelf_backend\service\AnalyticsService$ReadingProgressDTO.class
 com\mybookshelf\mybookshelf_backend\repository\ReadingSessionRepository.class
 com\mybookshelf\mybookshelf_backend\service\GenreService.class
+com\mybookshelf\mybookshelf_backend\dto\BookDTO.class
 com\mybookshelf\mybookshelf_backend\service\BookService$1.class
 com\mybookshelf\mybookshelf_backend\service\AnalyticsService$TopBookDTO.class
+com\mybookshelf\mybookshelf_backend\dto\AuthorDTO.class
 com\mybookshelf\mybookshelf_backend\service\AuthorService.class
 com\mybookshelf\mybookshelf_backend\model\Author.class
 com\mybookshelf\mybookshelf_backend\model\ReadingMood.class
