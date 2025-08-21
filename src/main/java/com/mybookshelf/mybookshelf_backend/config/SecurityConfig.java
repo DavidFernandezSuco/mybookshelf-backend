@@ -9,7 +9,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.web.SecurityFilterChain; // Cadena de filtros de seguridad
 
 /**
- * CLASE SecurityConfig - Configuración de Seguridad
+ * CLASE SecurityConfig - Configuración de Seguridad ACTUALIZADA
  *
  * ¿Qué es Spring Security?
  * - Framework de seguridad para aplicaciones Spring
@@ -19,12 +19,14 @@ import org.springframework.security.web.SecurityFilterChain; // Cadena de filtro
  * ¿Por qué necesitamos esta configuración?
  * - H2 Console necesita acceso sin restricciones durante desarrollo
  * - APIs REST necesitan acceso libre para testing y desarrollo
- * - Swagger UI necesita acceso para documentación
+ * - Swagger UI necesita acceso para documentación interactiva ← NUEVO
+ * - Exception handling necesita funcionar sin autenticación
  *
- * CONFIGURACIÓN ACTUAL: Desarrollo/Demo friendly
+ * CONFIGURACIÓN ACTUALIZADA: Development + Portfolio friendly
  * - APIs completamente abiertas para facilitar testing
  * - H2 Console accesible para debugging
- * - Preparado para futuras mejoras de seguridad
+ * - Swagger UI accesible para documentación profesional ← NUEVO
+ * - Preparado para demos y presentaciones de portfolio
  */
 
 @Configuration  // Le dice a Spring que esta clase contiene configuración
@@ -33,6 +35,8 @@ public class SecurityConfig {
 
     /**
      * MÉTODO filterChain - Configura la cadena de filtros de seguridad
+     *
+     * ACTUALIZADO: Incluye soporte completo para Swagger/OpenAPI
      *
      * ¿Qué es un SecurityFilterChain?
      * - Serie de filtros que procesan las peticiones HTTP
@@ -60,6 +64,7 @@ public class SecurityConfig {
                  * ¿Por qué lo deshabilitamos?
                  * - APIs REST no necesitan CSRF (se usa para formularios web tradicionales)
                  * - H2 Console no maneja tokens CSRF correctamente
+                 * - Swagger UI necesita hacer peticiones sin tokens CSRF ← NUEVO
                  * - Facilita testing con Postman, curl, etc.
                  *
                  * .csrf(csrf -> csrf.disable()) - Sintaxis moderna de Spring Security 6+
@@ -67,7 +72,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
 
                 // ========================================
-                // CONFIGURACIÓN DE AUTORIZACIÓN
+                // CONFIGURACIÓN DE AUTORIZACIÓN ACTUALIZADA
                 // ========================================
 
                 /**
@@ -77,29 +82,52 @@ public class SecurityConfig {
                  *
                  * ORDEN IMPORTANTE: las reglas más específicas van primero
                  *
+                 * 🆕 SWAGGER/OPENAPI ENDPOINTS:
+                 * .requestMatchers("/swagger-ui/**").permitAll()
+                 * - Permite acceso libre a la interfaz web de Swagger
+                 * - URL: http://localhost:8080/swagger-ui/index.html
+                 * - Esencial para documentación interactiva
+                 *
+                 * .requestMatchers("/v3/api-docs/**").permitAll()
+                 * - Permite acceso libre a los endpoints de OpenAPI JSON
+                 * - URL: http://localhost:8080/v3/api-docs
+                 * - Swagger UI lee estos JSON para generar la documentación
+                 *
+                 * .requestMatchers("/swagger-ui.html").permitAll()
+                 * - URL alternativa de Swagger (algunas versiones)
+                 * - Compatibilidad con diferentes configuraciones
+                 *
+                 * H2 CONSOLE:
                  * .requestMatchers("/h2-console/**").permitAll()
                  * - Permite acceso SIN autenticación a H2 Console
                  * - /** significa "cualquier subcarpeta o archivo"
                  * - Esencial para debugging durante desarrollo
                  *
-                 * .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                 * - Permite acceso libre a documentación Swagger
-                 * - /swagger-ui/** = interfaz web de Swagger
-                 * - /v3/api-docs/** = endpoints de OpenAPI JSON
-                 *
+                 * API REST:
                  * .requestMatchers("/api/**").permitAll()
                  * - 🔥 CLAVE: Permite acceso libre a TODA tu API REST
                  * - Durante desarrollo/demo, no requiere autenticación
                  * - Facilita testing inmediato de endpoints
+                 * - Permite que Swagger UI ejecute peticiones
                  *
+                 * RESTO DE APLICACIÓN:
                  * .anyRequest().authenticated()
                  * - TODAS las demás URLs requieren autenticación
                  * - Si no estás logueado, Spring redirige a login
                  */
                 .authorizeHttpRequests(auth -> auth
+                        // 🆕 SWAGGER/OPENAPI - Documentación interactiva
+                        .requestMatchers("/swagger-ui/**").permitAll()          // Swagger UI
+                        .requestMatchers("/v3/api-docs/**").permitAll()         // OpenAPI JSON
+                        .requestMatchers("/swagger-ui.html").permitAll()        // URL alternativa
+
+                        // HERRAMIENTAS DE DESARROLLO
                         .requestMatchers("/h2-console/**").permitAll()          // H2 Console libre
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()  // Swagger libre
+
+                        // API REST - Tu aplicación principal
                         .requestMatchers("/api/**").permitAll()                 // 🔥 API REST LIBRE
+
+                        // RESTO DE LA APLICACIÓN
                         .anyRequest().authenticated()                           // Resto protegido
                 )
 
@@ -117,7 +145,8 @@ public class SecurityConfig {
                  *
                  * ¿Por qué deshabilitamos Frame Options?
                  * - H2 Console usa frames internamente para mostrar su interfaz
-                 * - Si no lo deshabilitamos, H2 Console aparece en blanco
+                 * - Swagger UI también puede usar frames en algunos componentes ← NUEVO
+                 * - Si no lo deshabilitamos, estas herramientas aparecen en blanco
                  *
                  * NOTA: frameOptions() está DEPRECADO desde Spring Security 6.1
                  * Usamos el nuevo método recomendado con lambda
@@ -135,42 +164,62 @@ public class SecurityConfig {
     }
 
     /**
-     * NOTAS IMPORTANTES SOBRE ESTA CONFIGURACIÓN:
+     * NOTAS IMPORTANTES SOBRE ESTA CONFIGURACIÓN ACTUALIZADA:
      *
-     * 1. CONFIGURACIÓN DE DESARROLLO:
+     * 1. 🆕 SWAGGER INTEGRATION:
+     *    - Swagger UI completamente accesible sin autenticación
+     *    - OpenAPI endpoints liberados para documentación automática
+     *    - URLs de documentación: /swagger-ui/index.html, /v3/api-docs
+     *    - Perfecto para demos de portfolio y presentaciones
+     *
+     * 2. CONFIGURACIÓN DE DESARROLLO:
      *    - APIs completamente abiertas para facilitar testing
      *    - H2 Console accesible para debugging
-     *    - Swagger accesible para documentación
-     *    - Sin autenticación requerida para /api/**
+     *    - Swagger accesible para documentación interactiva
+     *    - Sin autenticación requerida para herramientas de desarrollo
      *
-     * 2. VENTAJAS ACTUALES:
-     *    - Testing inmediato con Postman/curl
-     *    - Demo funcional sin complicaciones
+     * 3. VENTAJAS ACTUALES:
+     *    - Testing inmediato con Postman/curl/Swagger UI
+     *    - Demo funcional sin complicaciones de autenticación
      *    - Desarrollo ágil sin obstáculos de auth
-     *    - Debugging fácil de base de datos
+     *    - Documentación profesional con Swagger UI
+     *    - Debugging fácil de base de datos con H2 Console
      *
-     * 3. URLS AFECTADAS:
-     *    - http://localhost:8080/api/books → ✅ LIBRE
-     *    - http://localhost:8080/api/authors → ✅ LIBRE
-     *    - http://localhost:8080/h2-console → ✅ LIBRE
-     *    - http://localhost:8080/swagger-ui → ✅ LIBRE
-     *    - http://localhost:8080/ → ❌ Requiere login
+     * 4. URLS LIBERADAS:
+     *    - http://localhost:8080/api/** → ✅ API REST LIBRE
+     *    - http://localhost:8080/swagger-ui/index.html → ✅ SWAGGER UI LIBRE
+     *    - http://localhost:8080/v3/api-docs → ✅ OPENAPI JSON LIBRE
+     *    - http://localhost:8080/h2-console → ✅ H2 CONSOLE LIBRE
+     *    - http://localhost:8080/ → ❌ Requiere login (otras páginas)
      *
-     * 4. EVOLUCIÓN FUTURA:
-     *    Esta configuración es perfecta para las fases actuales del proyecto.
-     *    Más adelante podemos implementar:
-     *    - JWT authentication para APIs
-     *    - Roles y permisos granulares
-     *    - Rate limiting
+     * 5. PORTFOLIO VALUE:
+     *    - Swagger UI proporciona documentación profesional automática
+     *    - Fácil demostración de capacidades API a recruiters
+     *    - Testing interactivo sin herramientas externas
+     *    - Aspecto profesional comparable a APIs comerciales
+     *
+     * 6. EVOLUCIÓN FUTURA (Post-Portfolio):
+     *    Esta configuración es perfecta para desarrollo y demo.
+     *    Más adelante se puede implementar:
+     *    - JWT authentication para APIs protegidas
+     *    - Roles y permisos granulares por endpoint
+     *    - Rate limiting para prevenir abuso
+     *    - API keys para consumidores externos
      *    - HTTPS obligatorio en producción
      *
-     * 5. SEGURIDAD EN PRODUCCIÓN:
+     * 7. SEGURIDAD EN PRODUCCIÓN:
      *    Cuando despliegues a producción, considera:
+     *    - Restringir acceso a Swagger UI (solo desarrollo)
+     *    - Implementar autenticación robusta para APIs
      *    - Habilitar CSRF para formularios web
-     *    - Restringir frame options
-     *    - Usar base de datos real (no H2)
-     *    - Implementar autenticación robusta
-     *    - HTTPS obligatorio
-     *    - Validación de input estricta
+     *    - Usar base de datos real con credenciales seguras
+     *    - HTTPS obligatorio y certificados SSL
+     *    - Validación de input estricta y rate limiting
+     *
+     * 8. TESTING & DEMO READY:
+     *    - ✅ Swagger UI funcionará inmediatamente
+     *    - ✅ Todos los endpoints documentados automáticamente
+     *    - ✅ Testing directo desde navegador
+     *    - ✅ Professional API explorer para presentaciones
      */
 }
