@@ -38,6 +38,7 @@ com\mybookshelf\mybookshelf_backend\service\ReadingSessionService.class
 com\mybookshelf\mybookshelf_backend\config\SecurityConfig.class
 com\mybookshelf\mybookshelf_backend\service\BookService.class
 com\mybookshelf\mybookshelf_backend\service\AnalyticsService.class
+com\mybookshelf\mybookshelf_backend\controller\AnalyticsController.class
 com\mybookshelf\mybookshelf_backend\model\Book.class
 com\mybookshelf\mybookshelf_backend\model\BookStatus.class
 com\mybookshelf\mybookshelf_backend\model\Genre.class
