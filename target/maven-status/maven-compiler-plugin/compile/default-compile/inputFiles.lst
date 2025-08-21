@@ -1,8 +1,12 @@
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\config\SecurityConfig.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\controller\AuthorController.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\controller\BookController.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\controller\GenreController.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\AuthorCreateDTO.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\AuthorDTO.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\BookCreateDTO.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\BookDTO.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\GenreCreateDTO.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\GenreDTO.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\mapper\AuthorMapper.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\mapper\BookMapper.java

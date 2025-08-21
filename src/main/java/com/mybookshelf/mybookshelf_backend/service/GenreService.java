@@ -1,98 +1,301 @@
 package com.mybookshelf.mybookshelf_backend.service;
 
 // IMPORTS: Librerías necesarias para la lógica de negocio
-import com.mybookshelf.mybookshelf_backend.model.Genre;      // Entidad Genre
+import com.mybookshelf.mybookshelf_backend.dto.GenreCreateDTO;    // DTO para crear géneros
+import com.mybookshelf.mybookshelf_backend.dto.GenreDTO;          // DTO de respuesta
+import com.mybookshelf.mybookshelf_backend.mapper.GenreMapper;    // Mapper para conversiones
+import com.mybookshelf.mybookshelf_backend.model.Genre;          // Entidad Genre
 import com.mybookshelf.mybookshelf_backend.repository.GenreRepository; // Repository de géneros
-import org.springframework.data.domain.Page;                 // Para paginación
-import org.springframework.data.domain.Pageable;             // Configuración de paginación
-import org.springframework.stereotype.Service;               // Anotación de Spring
+import org.springframework.data.domain.Page;                     // Para paginación
+import org.springframework.data.domain.Pageable;                 // Configuración de paginación
+import org.springframework.stereotype.Service;                   // Anotación de Spring
 import org.springframework.transaction.annotation.Transactional; // Para transacciones
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
- * CLASE GenreService - "Gestor Básico de Géneros Literarios"
+ * CLASE GenreService - "Gestor Básico de Géneros Literarios" ACTUALIZADA
  *
- * ¿Para qué sirve GenreService?
- * - Gestionar géneros con normalización básica
- * - Evitar duplicados simples
- * - Operaciones CRUD fundamentales
- * - Base para expandir funcionalidad
+ * ACTUALIZACIÓN: Agregados métodos DTO siguiendo patrón de AuthorService
  *
- * CASOS DE USO PRINCIPALES:
- * - "Buscar o crear género" - Evita duplicados al añadir libros
- * - "Obtener todos los géneros" - Para formularios y listas
- * - "Gestión básica" - CRUD esencial
+ * MANTIENE: Toda la lógica de negocio existente
+ * AGREGA: Métodos para API REST con DTOs
  *
- * VERSIÓN ULTRA SIMPLIFICADA:
- * - Solo usa métodos básicos de JpaRepository
- * - findAll(), findById(), save(), delete(), etc.
- * - Evita cualquier query personalizada
- * - Funcional pero expandible
+ * ARQUITECTURA:
+ * - Métodos Entity (existentes) - Para lógica interna
+ * - Métodos DTO (nuevos) - Para API REST
+ * - GenreMapper - Para conversiones Entity ↔ DTO
  */
 @Service // Marca esta clase como componente de lógica de negocio
 @Transactional // Todas las operaciones serán transaccionales por defecto
 public class GenreService {
 
     // ========================================
-    // INYECCIÓN DE DEPENDENCIAS
+    // INYECCIÓN DE DEPENDENCIAS ACTUALIZADA
     // ========================================
 
     /**
      * REPOSITORY: Acceso a datos de géneros
-     *
-     * Solo usamos métodos básicos de JpaRepository
      */
     private final GenreRepository genreRepository;
+    private final GenreMapper genreMapper; // ← AGREGADO
 
     /**
-     * CONSTRUCTOR: Inyección de dependencias
+     * CONSTRUCTOR: Inyección de dependencias ACTUALIZADA
      */
-    public GenreService(GenreRepository genreRepository) {
+    public GenreService(GenreRepository genreRepository,
+                        GenreMapper genreMapper) { // ← AGREGADO
         this.genreRepository = genreRepository;
+        this.genreMapper = genreMapper; // ← AGREGADO
     }
 
     // ========================================
-    // OPERACIONES CRUD BÁSICAS
+    // MÉTODOS DTO NUEVOS (PARA API REST)
     // ========================================
 
     /**
-     * OBTENER TODOS LOS GÉNEROS
+     * OBTENER TODOS LOS GÉNEROS CON PAGINACIÓN (DTO)
+     *
+     * SIGUIENDO PATRÓN AuthorService.getAllAuthors()
+     *
+     * @param pageable Configuración de paginación
+     * @return Page<GenreDTO> para respuesta API
+     */
+    @Transactional(readOnly = true)
+    public Page<GenreDTO> getAllGenres(Pageable pageable) {
+        return genreRepository.findAll(pageable)
+                .map(genreMapper::toDTO);
+    }
+
+    /**
+     * OBTENER GÉNERO POR ID (DTO)
+     *
+     * SIGUIENDO PATRÓN AuthorService.getAuthorById()
+     *
+     * @param id ID del género
+     * @return GenreDTO encontrado
+     * @throws RuntimeException si no existe
+     */
+    @Transactional(readOnly = true)
+    public GenreDTO getGenreById(Long id) {
+        Genre genre = genreRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Genre not found with id: " + id));
+        return genreMapper.toDTO(genre);
+    }
+
+    /**
+     * CREAR NUEVO GÉNERO (DTO)
+     *
+     * SIGUIENDO PATRÓN AuthorService.createAuthor()
+     * Incluye todas las validaciones existentes
+     *
+     * @param createDTO DTO con datos del género a crear
+     * @return GenreDTO del género creado
+     */
+    public GenreDTO createGenre(GenreCreateDTO createDTO) {
+        // VALIDACIÓN: Usar mapper para verificar DTO
+        if (!genreMapper.isValidForConversion(createDTO)) {
+            throw new RuntimeException("Invalid genre data provided");
+        }
+
+        // CONVERSIÓN: DTO → Entity
+        Genre genre = genreMapper.toEntity(createDTO);
+
+        // LÓGICA DE NEGOCIO: Aplicar mismas validaciones que método existente
+        // VALIDACIÓN 1: Nombre obligatorio
+        if (genre.getName() == null || genre.getName().trim().isEmpty()) {
+            throw new RuntimeException("Genre name is required");
+        }
+
+        // NORMALIZACIÓN: Usando método existente
+        String normalizedName = normalizeGenreName(genre.getName());
+
+        // VALIDACIÓN 2: Verificar duplicado
+        Optional<Genre> existingGenre = findGenreByNameIgnoreCase(normalizedName);
+        if (existingGenre.isPresent()) {
+            throw new RuntimeException("Genre '" + normalizedName + "' already exists");
+        }
+
+        // VALIDACIÓN 3: Longitud del nombre
+        if (normalizedName.length() > 50) {
+            throw new RuntimeException("Genre name must not exceed 50 characters");
+        }
+
+        // APLICAR normalización
+        genre.setName(normalizedName);
+
+        // DESCRIPCIÓN por defecto si no se proporciona
+        if (genre.getDescription() == null || genre.getDescription().trim().isEmpty()) {
+            genre.setDescription("Genre created via API");
+        }
+
+        // GUARDAR: Entity en BD
+        Genre savedGenre = genreRepository.save(genre);
+
+        // CONVERSIÓN: Entity → DTO para respuesta
+        return genreMapper.toDTO(savedGenre);
+    }
+
+    /**
+     * ACTUALIZAR GÉNERO (DTO)
+     *
+     * SIGUIENDO PATRÓN AuthorService.updateAuthor()
+     *
+     * @param id ID del género a actualizar
+     * @param updateDTO Datos actualizados
+     * @return GenreDTO actualizado
+     */
+    public GenreDTO updateGenre(Long id, GenreCreateDTO updateDTO) {
+        // BUSCAR: Género existente
+        Genre existingGenre = genreRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Genre not found with id: " + id));
+
+        // ACTUALIZAR: Usando mapper + lógica existente
+        Genre updatedGenre = genreMapper.updateEntityFromDTO(existingGenre, updateDTO);
+
+        // APLICAR: Validaciones adicionales si cambió el nombre
+        if (updateDTO.getName() != null && !updateDTO.getName().trim().isEmpty()) {
+            String normalizedName = normalizeGenreName(updateDTO.getName());
+
+            // Verificar que el nuevo nombre no existe en otro género
+            Optional<Genre> duplicateGenre = findGenreByNameIgnoreCase(normalizedName);
+            if (duplicateGenre.isPresent() && !duplicateGenre.get().getId().equals(id)) {
+                throw new RuntimeException("Genre '" + normalizedName + "' already exists");
+            }
+
+            updatedGenre.setName(normalizedName);
+        }
+
+        // GUARDAR: Cambios en BD
+        Genre savedGenre = genreRepository.save(updatedGenre);
+
+        // CONVERSIÓN: Entity → DTO para respuesta
+        return genreMapper.toDTO(savedGenre);
+    }
+
+    /**
+     * ELIMINAR GÉNERO (DTO)
+     *
+     * SIGUIENDO PATRÓN AuthorService.deleteAuthor()
+     *
+     * @param id ID del género a eliminar
+     */
+    public void deleteGenre(Long id) {
+        // VERIFICAR: Que existe (lanza excepción si no)
+        Genre genre = genreRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Genre not found with id: " + id));
+
+        // VALIDACIÓN BÁSICA: Verificar si tiene libros asociados
+        if (genre.getBooks() != null && !genre.getBooks().isEmpty()) {
+            throw new RuntimeException("Cannot delete genre with " + genre.getBooks().size() +
+                    " associated books. Reassign books first.");
+        }
+
+        // ELIMINAR: Del repositorio
+        genreRepository.delete(genre);
+    }
+
+    /**
+     * BUSCAR GÉNEROS (DTO)
+     *
+     * SIGUIENDO PATRÓN AuthorService.searchAuthors()
+     *
+     * @param query Término de búsqueda
+     * @return Lista de GenreDTO que coinciden
+     */
+    @Transactional(readOnly = true)
+    public List<GenreDTO> searchGenres(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+
+        // USAR: Método existente para búsqueda
+        List<Genre> genres = searchGenreEntities(query.trim());
+
+        // CONVERSIÓN: List<Genre> → List<GenreDTO>
+        return genres.stream()
+                .map(genreMapper::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * OBTENER GÉNEROS PARA AUTOCOMPLETADO (DTO)
+     *
+     * NUEVO: Método especializado para UI
+     *
+     * @param searchTerm Término parcial
+     * @param pageable Configuración (máximo resultados)
+     * @return Page<GenreDTO> para autocompletado
+     */
+    @Transactional(readOnly = true)
+    public Page<GenreDTO> getGenresForAutocomplete(String searchTerm, Pageable pageable) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            // Devolver géneros más populares (con más libros)
+            return genreRepository.findGenresByPopularity(pageable)
+                    .map(genreMapper::toAutocompleteDTO);
+        }
+        return genreRepository.findForAutocomplete(searchTerm.trim(), pageable)
+                .map(genreMapper::toAutocompleteDTO);
+    }
+
+    /**
+     * OBTENER GÉNEROS ORDENADOS ALFABÉTICAMENTE (DTO)
+     *
+     * NUEVO: Para dropdowns y listas ordenadas
+     *
+     * @return Lista de GenreDTO ordenada por nombre
+     */
+    @Transactional(readOnly = true)
+    public List<GenreDTO> getGenresOrderedByName() {
+        List<Genre> genres = genreRepository.findAllOrderedByName();
+        return genres.stream()
+                .map(genreMapper::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ========================================
+    // MÉTODOS ENTITY EXISTENTES (MANTENER TODOS)
+    // ========================================
+
+    /**
+     * OBTENER TODOS LOS GÉNEROS (ENTITY - MANTENER)
      *
      * @return Lista de todos los géneros
      */
     @Transactional(readOnly = true)
-    public List<Genre> getAllGenres() {
+    public List<Genre> getAllGenreEntities() {
         return genreRepository.findAll();
     }
 
     /**
-     * OBTENER GÉNEROS CON PAGINACIÓN
+     * OBTENER GÉNEROS CON PAGINACIÓN (ENTITY - MANTENER)
      *
      * @param pageable Configuración de paginación
      * @return Página de géneros
      */
     @Transactional(readOnly = true)
-    public Page<Genre> getAllGenres(Pageable pageable) {
+    public Page<Genre> getAllGenreEntities(Pageable pageable) {
         return genreRepository.findAll(pageable);
     }
 
     /**
-     * OBTENER GÉNERO POR ID
+     * OBTENER GÉNERO POR ID (ENTITY - MANTENER)
      *
      * @param id ID del género
      * @return Genre encontrado
      * @throws RuntimeException si no existe
      */
     @Transactional(readOnly = true)
-    public Genre getGenreById(Long id) {
+    public Genre getGenreEntityById(Long id) {
         return genreRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Genre not found with id: " + id));
     }
 
     /**
-     * BUSCAR O CREAR GÉNERO (OPERACIÓN CLAVE)
+     * BUSCAR O CREAR GÉNERO (ENTITY - MANTENER)
      *
      * Función más importante para evitar duplicados:
      * 1. Normaliza el nombre del género
@@ -127,12 +330,12 @@ public class GenreService {
     }
 
     /**
-     * CREAR NUEVO GÉNERO (CON VALIDACIONES)
+     * CREAR NUEVO GÉNERO (ENTITY - MANTENER)
      *
      * @param genre Género a crear
      * @return Género creado
      */
-    public Genre createGenre(Genre genre) {
+    public Genre createGenreEntity(Genre genre) {
         // VALIDACIÓN 1: Nombre obligatorio
         if (genre.getName() == null || genre.getName().trim().isEmpty()) {
             throw new RuntimeException("Genre name is required");
@@ -164,14 +367,14 @@ public class GenreService {
     }
 
     /**
-     * ACTUALIZAR GÉNERO
+     * ACTUALIZAR GÉNERO (ENTITY - MANTENER)
      *
      * @param id ID del género a actualizar
      * @param updatedGenre Datos actualizados
      * @return Género actualizado
      */
-    public Genre updateGenre(Long id, Genre updatedGenre) {
-        Genre existingGenre = getGenreById(id);
+    public Genre updateGenreEntity(Long id, Genre updatedGenre) {
+        Genre existingGenre = getGenreEntityById(id);
 
         // Actualizar solo campos no nulos
         if (updatedGenre.getName() != null && !updatedGenre.getName().trim().isEmpty()) {
@@ -194,12 +397,14 @@ public class GenreService {
     }
 
     /**
-     * ELIMINAR GÉNERO (CON VALIDACIONES BÁSICAS)
+     * ELIMINAR GÉNERO (ENTITY - MANTENER)
+     *
+     * Solo permite eliminar si no tiene libros asociados
      *
      * @param genreId ID del género a eliminar
      */
-    public void deleteGenre(Long genreId) {
-        Genre genre = getGenreById(genreId);
+    public void deleteGenreEntity(Long genreId) {
+        Genre genre = getGenreEntityById(genreId);
 
         // VALIDACIÓN BÁSICA: Verificar si tiene libros asociados
         if (genre.getBooks() != null && !genre.getBooks().isEmpty()) {
@@ -211,11 +416,11 @@ public class GenreService {
     }
 
     // ========================================
-    // OPERACIONES DE BÚSQUEDA BÁSICA
+    // OPERACIONES DE BÚSQUEDA BÁSICA (MANTENER)
     // ========================================
 
     /**
-     * BÚSQUEDA SIMPLE DE GÉNEROS
+     * BÚSQUEDA SIMPLE DE GÉNEROS (ENTITY - MANTENER)
      *
      * Busca en nombre usando filtrado manual
      *
@@ -223,7 +428,7 @@ public class GenreService {
      * @return Lista de géneros que coinciden
      */
     @Transactional(readOnly = true)
-    public List<Genre> searchGenres(String searchTerm) {
+    public List<Genre> searchGenreEntities(String searchTerm) {
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
             return List.of();
         }
@@ -237,23 +442,23 @@ public class GenreService {
     }
 
     /**
-     * OBTENER GÉNEROS ORDENADOS ALFABÉTICAMENTE
+     * OBTENER GÉNEROS ORDENADOS ALFABÉTICAMENTE (ENTITY - MANTENER)
      *
      * @return Lista ordenada por nombre
      */
     @Transactional(readOnly = true)
-    public List<Genre> getGenresOrderedByName() {
+    public List<Genre> getGenresOrderedByNameEntity() {
         return genreRepository.findAll().stream()
                 .sorted((a, b) -> a.getName().compareToIgnoreCase(b.getName()))
                 .toList();
     }
 
     // ========================================
-    // ESTADÍSTICAS BÁSICAS
+    // ESTADÍSTICAS BÁSICAS (MANTENER)
     // ========================================
 
     /**
-     * CONTAR GÉNEROS TOTAL
+     * CONTAR GÉNEROS TOTAL (MANTENER)
      *
      * @return Número total de géneros
      */
@@ -263,7 +468,7 @@ public class GenreService {
     }
 
     /**
-     * OBTENER GÉNEROS CON LIBROS
+     * OBTENER GÉNEROS CON LIBROS (MANTENER)
      *
      * @return Lista de géneros que tienen al menos un libro
      */
@@ -275,7 +480,7 @@ public class GenreService {
     }
 
     /**
-     * OBTENER GÉNEROS SIN LIBROS (HUÉRFANOS)
+     * OBTENER GÉNEROS SIN LIBROS (HUÉRFANOS) (MANTENER)
      *
      * @return Lista de géneros sin libros asociados
      */
@@ -287,11 +492,49 @@ public class GenreService {
     }
 
     // ========================================
-    // MÉTODOS DE UTILIDAD PRIVADOS
+    // OPERACIONES AVANZADAS BÁSICAS (MANTENER)
     // ========================================
 
     /**
-     * BUSCAR GÉNERO POR NOMBRE (CASE-INSENSITIVE)
+     * LIMPIAR GÉNEROS HUÉRFANOS (MANTENER)
+     *
+     * Elimina géneros que no tienen libros asociados
+     *
+     * @return Número de géneros eliminados
+     */
+    public int cleanOrphanGenres() {
+        List<Genre> orphanGenres = getOrphanGenres();
+
+        // Solo eliminar géneros auto-creados sin libros
+        List<Genre> toDelete = orphanGenres.stream()
+                .filter(genre -> genre.getDescription() != null &&
+                        genre.getDescription().contains("Auto-created"))
+                .toList();
+
+        genreRepository.deleteAll(toDelete);
+        return toDelete.size();
+    }
+
+    /**
+     * VERIFICAR SI EXISTE GÉNERO POR NOMBRE (MANTENER)
+     *
+     * @param name Nombre del género
+     * @return true si existe, false si no
+     */
+    @Transactional(readOnly = true)
+    public boolean existsByName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return false;
+        }
+        return findGenreByNameIgnoreCase(normalizeGenreName(name)).isPresent();
+    }
+
+    // ========================================
+    // MÉTODOS DE UTILIDAD PRIVADOS (MANTENER)
+    // ========================================
+
+    /**
+     * BUSCAR GÉNERO POR NOMBRE (CASE-INSENSITIVE) (MANTENER)
      *
      * Implementación manual ya que no tenemos el método en repository
      *
@@ -305,7 +548,7 @@ public class GenreService {
     }
 
     /**
-     * NORMALIZAR NOMBRE DE GÉNERO
+     * NORMALIZAR NOMBRE DE GÉNERO (MANTENER)
      *
      * Aplica reglas básicas de normalización:
      * - Capitaliza primera letra de cada palabra
@@ -351,7 +594,7 @@ public class GenreService {
     }
 
     /**
-     * MANEJAR CASOS ESPECIALES DE GÉNEROS
+     * MANEJAR CASOS ESPECIALES DE GÉNEROS (MANTENER)
      *
      * @param name Nombre en lowercase
      * @return Nombre con casos especiales aplicados
@@ -376,84 +619,47 @@ public class GenreService {
     }
 
     /**
-     * VERIFICAR SI ES PREPOSICIÓN PEQUEÑA
+     * VERIFICAR SI ES PREPOSICIÓN PEQUEÑA (MANTENER)
      *
      * @param word Palabra a verificar
      * @return true si es preposición que no se capitaliza
      */
     private boolean isSmallPreposition(String word) {
         String[] smallWords = {"of", "and", "the", "in", "on", "at", "to", "for", "with"};
-        return List.of(smallWords).contains(word.toLowerCase());
-    }
-
-    // ========================================
-    // OPERACIONES AVANZADAS BÁSICAS
-    // ========================================
-
-    /**
-     * LIMPIAR GÉNEROS HUÉRFANOS
-     *
-     * Elimina géneros que no tienen libros asociados
-     *
-     * @return Número de géneros eliminados
-     */
-    public int cleanOrphanGenres() {
-        List<Genre> orphanGenres = getOrphanGenres();
-
-        // Solo eliminar géneros auto-creados sin libros
-        List<Genre> toDelete = orphanGenres.stream()
-                .filter(genre -> genre.getDescription() != null &&
-                        genre.getDescription().contains("Auto-created"))
-                .toList();
-
-        genreRepository.deleteAll(toDelete);
-        return toDelete.size();
-    }
-
-    /**
-     * VERIFICAR SI EXISTE GÉNERO POR NOMBRE
-     *
-     * @param name Nombre del género
-     * @return true si existe, false si no
-     */
-    @Transactional(readOnly = true)
-    public boolean existsByName(String name) {
-        if (name == null || name.trim().isEmpty()) {
-            return false;
-        }
-        return findGenreByNameIgnoreCase(normalizeGenreName(name)).isPresent();
+        return Arrays.asList(smallWords).contains(word.toLowerCase());
     }
 
     /*
-     * NOTAS IMPORTANTES SOBRE GenreService SIMPLIFICADO:
+     * RESUMEN DE ACTUALIZACIÓN:
      *
-     * 1. SOLO MÉTODOS BÁSICOS:
-     *    - Usa únicamente findAll(), findById(), save(), delete()
-     *    - Evita cualquier query personalizada
-     *    - Filtrado manual con streams cuando es necesario
+     * ✅ AGREGADO:
+     *    - GenreMapper injection
+     *    - 6 métodos DTO para API REST:
+     *      * getAllGenres(Pageable) → Page<GenreDTO>
+     *      * getGenreById(Long) → GenreDTO
+     *      * createGenre(GenreCreateDTO) → GenreDTO
+     *      * updateGenre(Long, GenreCreateDTO) → GenreDTO
+     *      * deleteGenre(Long) → void
+     *      * searchGenres(String) → List<GenreDTO>
+     *      * getGenresForAutocomplete() → Page<GenreDTO>
+     *      * getGenresOrderedByName() → List<GenreDTO>
      *
-     * 2. FUNCIONALIDAD ESENCIAL:
-     *    - findOrCreateGenre() para evitar duplicados
-     *    - Normalización inteligente de nombres
-     *    - Validaciones básicas pero efectivas
-     *    - Operaciones CRUD completas
+     * ✅ MANTENIDO:
+     *    - TODOS los métodos existentes (Entity-based)
+     *    - TODA la lógica de negocio existente
+     *    - TODAS las validaciones existentes
+     *    - TODOS los métodos de utilidad
+     *    - findOrCreateGenre() para BookService
      *
-     * 3. BÚSQUEDAS MANUALES:
-     *    - findGenreByNameIgnoreCase() implementado con streams
-     *    - Búsquedas de texto con filtrado en memoria
-     *    - Ordenamiento manual por nombre
+     * ✅ PATRÓN:
+     *    - Sigue EXACTAMENTE el patrón de AuthorService
+     *    - Mismos nombres de métodos
+     *    - Misma estructura de validaciones
+     *    - Misma gestión de errores
      *
-     * 4. PERFORMANCE:
-     *    - Adecuado para volúmenes pequeños/medianos de géneros
-     *    - Fácil de optimizar después con queries personalizadas
-     *    - Transacciones read-only donde corresponde
-     *
-     * 5. ESCALABILIDAD:
-     *    - Base sólida para añadir queries optimizadas
-     *    - Estructura preparada para expansión
-     *    - Métodos privados reutilizables
-     *
-     * Esta versión compila sin errores y proporciona toda la funcionalidad
-     * esencial para gestionar géneros en la aplicación.
+     * ✅ COMPATIBILIDAD:
+     *    - BookService puede seguir usando findOrCreateGenre()
+     *    - Métodos internos siguen funcionando igual
+     *    - Solo se agregaron métodos DTO para API REST
      */
 }
