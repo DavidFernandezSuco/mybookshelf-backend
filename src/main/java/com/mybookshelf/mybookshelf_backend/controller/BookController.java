@@ -149,7 +149,7 @@ public class BookController {
      */
     @GetMapping("/currently-reading")
     public ResponseEntity<List<BookDTO>> getCurrentlyReadingBooks() {
-        List<Book> books = bookService.getCurrentlyReadingBooks();
+        List<Book> books = bookService.getCurrentlyReadingBooks(BookStatus.READING);
 
         // Convertir a DTOs
         List<BookDTO> bookDTOs = books.stream()
