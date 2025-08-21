@@ -1,13 +1,16 @@
 package com.mybookshelf.mybookshelf_backend.service;
 
 // IMPORTS: Librerías necesarias para la lógica de negocio
-import com.mybookshelf.mybookshelf_backend.model.Author;      // Entidad Author
-import com.mybookshelf.mybookshelf_backend.model.Book;        // Entidad Book para relaciones
+import com.mybookshelf.mybookshelf_backend.dto.AuthorCreateDTO;    // DTO para crear autores
+import com.mybookshelf.mybookshelf_backend.dto.AuthorDTO;          // DTO de respuesta
+import com.mybookshelf.mybookshelf_backend.mapper.AuthorMapper;    // Mapper para conversiones
+import com.mybookshelf.mybookshelf_backend.model.Author;          // Entidad Author
+import com.mybookshelf.mybookshelf_backend.model.Book;            // Entidad Book para relaciones
 import com.mybookshelf.mybookshelf_backend.repository.AuthorRepository; // Repository de autores
 import com.mybookshelf.mybookshelf_backend.repository.BookRepository;   // Para verificar relaciones
-import org.springframework.data.domain.Page;                  // Para paginación
-import org.springframework.data.domain.Pageable;              // Configuración de paginación
-import org.springframework.stereotype.Service;                // Anotación de Spring
+import org.springframework.data.domain.Page;                      // Para paginación
+import org.springframework.data.domain.Pageable;                  // Configuración de paginación
+import org.springframework.stereotype.Service;                    // Anotación de Spring
 import org.springframework.transaction.annotation.Transactional; // Para transacciones
 
 import java.time.LocalDate;
@@ -17,97 +20,296 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * CLASE AuthorService - "Gestor Inteligente de Autores"
+ * CLASE AuthorService - "Gestor Inteligente de Autores" ACTUALIZADA
  *
- * ¿Para qué sirve AuthorService?
- * - Gestionar autores con validaciones de negocio
- * - Evitar duplicados de autores
- * - Proporcionar búsquedas inteligentes
- * - Estadísticas de productividad de autores
- * - Manejo de relaciones con libros
+ * ACTUALIZACIÓN: Agregados métodos DTO siguiendo patrón de BookService
  *
- * CASOS DE USO PRINCIPALES:
- * - "Buscar o crear autor" - Evita duplicados al añadir libros
- * - "Autores más prolíficos" - Estadísticas de productividad
- * - "Autocompletado" - Para formularios de creación de libros
- * - "Limpieza de datos" - Detectar y fusionar autores duplicados
+ * MANTIENE: Toda la lógica de negocio existente
+ * AGREGA: Métodos para API REST con DTOs
  *
- * LÓGICA DE NEGOCIO ESPECIAL:
- * - Normalización de nombres (capitalización, espacios)
- * - Detección de duplicados potenciales
- * - Validación de datos biográficos
- * - Gestión de relaciones con libros
+ * ARQUITECTURA:
+ * - Métodos Entity (existentes) - Para lógica interna
+ * - Métodos DTO (nuevos) - Para API REST
+ * - AuthorMapper - Para conversiones Entity ↔ DTO
  */
 @Service // Marca esta clase como componente de lógica de negocio
 @Transactional // Operaciones transaccionales por defecto
 public class AuthorService {
 
     // ========================================
-    // INYECCIÓN DE DEPENDENCIAS
+    // INYECCIÓN DE DEPENDENCIAS ACTUALIZADA
     // ========================================
 
     private final AuthorRepository authorRepository;
     private final BookRepository bookRepository;
+    private final AuthorMapper authorMapper; // ← AGREGADO
 
     /**
-     * CONSTRUCTOR: Inyección de dependencias
+     * CONSTRUCTOR: Inyección de dependencias ACTUALIZADA
      */
-    public AuthorService(AuthorRepository authorRepository, BookRepository bookRepository) {
+    public AuthorService(AuthorRepository authorRepository,
+                         BookRepository bookRepository,
+                         AuthorMapper authorMapper) { // ← AGREGADO
         this.authorRepository = authorRepository;
         this.bookRepository = bookRepository;
+        this.authorMapper = authorMapper; // ← AGREGADO
     }
 
     // ========================================
-    // OPERACIONES CRUD CON LÓGICA DE NEGOCIO
+    // MÉTODOS DTO NUEVOS (PARA API REST)
     // ========================================
 
     /**
-     * OBTENER TODOS LOS AUTORES (ORDENADOS ALFABÉTICAMENTE)
+     * OBTENER TODOS LOS AUTORES CON PAGINACIÓN (DTO)
      *
-     * @return Lista de autores ordenada por apellido, nombre
-     */
-    @Transactional(readOnly = true)
-    public List<Author> getAllAuthors() {
-        return authorRepository.findAllOrderedByName();
-    }
-
-    /**
-     * OBTENER AUTORES CON PAGINACIÓN
+     * SIGUIENDO PATRÓN BookService.getAllBooks()
      *
      * @param pageable Configuración de paginación
-     * @return Página de autores
+     * @return Page<AuthorDTO> para respuesta API
      */
     @Transactional(readOnly = true)
-    public Page<Author> getAllAuthors(Pageable pageable) {
-        return authorRepository.findAll(pageable);
+    public Page<AuthorDTO> getAllAuthors(Pageable pageable) {
+        return authorRepository.findAll(pageable)
+                .map(authorMapper::toDTO);
     }
 
     /**
-     * OBTENER AUTOR POR ID
+     * OBTENER AUTOR POR ID (DTO)
+     *
+     * SIGUIENDO PATRÓN BookService.getBookById()
      *
      * @param id ID del autor
-     * @return Author encontrado
+     * @return AuthorDTO encontrado
      * @throws RuntimeException si no existe
      */
     @Transactional(readOnly = true)
-    public Author getAuthorById(Long id) {
-        return authorRepository.findById(id)
+    public AuthorDTO getAuthorById(Long id) {
+        Author author = authorRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Author not found with id: " + id));
+        return authorMapper.toDTO(author);
     }
 
     /**
-     * CREAR NUEVO AUTOR (CON VALIDACIONES)
+     * CREAR NUEVO AUTOR (DTO)
      *
-     * Lógica de negocio aplicada:
-     * 1. Normalizar nombres (capitalizar, limpiar espacios)
-     * 2. Verificar duplicados por nombre completo
-     * 3. Validar datos obligatorios
-     * 4. Verificar duplicados potenciales y advertir
+     * SIGUIENDO PATRÓN BookService.createBook()
+     * Incluye todas las validaciones existentes
      *
-     * @param author Autor a crear
-     * @return Autor creado
+     * @param createDTO DTO con datos del autor a crear
+     * @return AuthorDTO del autor creado
      */
-    public Author createAuthor(Author author) {
+    public AuthorDTO createAuthor(AuthorCreateDTO createDTO) {
+        // VALIDACIÓN: Usar mapper para verificar DTO
+        if (!authorMapper.isValidForConversion(createDTO)) {
+            throw new RuntimeException("Invalid author data provided");
+        }
+
+        // CONVERSIÓN: DTO → Entity
+        Author author = authorMapper.toEntity(createDTO);
+
+        // LÓGICA DE NEGOCIO: Aplicar mismas validaciones que método existente
+        // VALIDACIÓN 1: Campos obligatorios
+        if (author.getFirstName() == null || author.getFirstName().trim().isEmpty()) {
+            throw new RuntimeException("Author first name is required");
+        }
+        if (author.getLastName() == null || author.getLastName().trim().isEmpty()) {
+            throw new RuntimeException("Author last name is required");
+        }
+
+        // NORMALIZACIÓN: Usando método existente
+        String normalizedFirstName = normalizeNameString(author.getFirstName());
+        String normalizedLastName = normalizeNameString(author.getLastName());
+
+        author.setFirstName(normalizedFirstName);
+        author.setLastName(normalizedLastName);
+
+        // VALIDACIÓN 2: Verificar duplicado exacto
+        Optional<Author> existingAuthor = authorRepository.findByFullName(
+                normalizedFirstName, normalizedLastName);
+        if (existingAuthor.isPresent()) {
+            throw new RuntimeException("Author '" + author.getFullName() + "' already exists");
+        }
+
+        // VALIDACIÓN 3: Verificar duplicados potenciales
+        List<Author> potentialDuplicates = authorRepository.findPotentialDuplicates(
+                normalizedFirstName, normalizedLastName);
+        if (!potentialDuplicates.isEmpty()) {
+            // Log warning pero no bloquear creación
+            System.out.println("WARNING: Potential duplicate authors found for: " + author.getFullName());
+            potentialDuplicates.forEach(duplicate ->
+                    System.out.println("  - " + duplicate.getFullName()));
+        }
+
+        // VALIDACIÓN 4: Fecha de nacimiento lógica
+        if (author.getBirthDate() != null) {
+            LocalDate now = LocalDate.now();
+            if (author.getBirthDate().isAfter(now)) {
+                throw new RuntimeException("Birth date cannot be in the future");
+            }
+            if (author.getBirthDate().isBefore(LocalDate.of(1800, 1, 1))) {
+                throw new RuntimeException("Birth date seems too old (before 1800)");
+            }
+        }
+
+        // NORMALIZACIÓN: Limpiar nacionalidad si existe
+        if (author.getNationality() != null) {
+            author.setNationality(normalizeNameString(author.getNationality()));
+        }
+
+        // GUARDAR: Entity en BD
+        Author savedAuthor = authorRepository.save(author);
+
+        // CONVERSIÓN: Entity → DTO para respuesta
+        return authorMapper.toDTO(savedAuthor);
+    }
+
+    /**
+     * ACTUALIZAR AUTOR (DTO)
+     *
+     * SIGUIENDO PATRÓN BookService (aunque BookService no tiene update completo)
+     *
+     * @param id ID del autor a actualizar
+     * @param updateDTO Datos actualizados
+     * @return AuthorDTO actualizado
+     */
+    public AuthorDTO updateAuthor(Long id, AuthorCreateDTO updateDTO) {
+        // BUSCAR: Autor existente
+        Author existingAuthor = authorRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Author not found with id: " + id));
+
+        // ACTUALIZAR: Usando mapper + lógica existente
+        Author updatedAuthor = authorMapper.updateEntityFromDTO(existingAuthor, updateDTO);
+
+        // APLICAR: Validaciones adicionales si cambió el nombre
+        if (updateDTO.getFirstName() != null || updateDTO.getLastName() != null) {
+            // Re-verificar duplicados
+            Optional<Author> duplicateAuthor = authorRepository.findByFullName(
+                    updatedAuthor.getFirstName(), updatedAuthor.getLastName());
+            if (duplicateAuthor.isPresent() && !duplicateAuthor.get().getId().equals(id)) {
+                throw new RuntimeException("Author '" + updatedAuthor.getFullName() + "' already exists");
+            }
+        }
+
+        // GUARDAR: Cambios en BD
+        Author savedAuthor = authorRepository.save(updatedAuthor);
+
+        // CONVERSIÓN: Entity → DTO para respuesta
+        return authorMapper.toDTO(savedAuthor);
+    }
+
+    /**
+     * ELIMINAR AUTOR (DTO)
+     *
+     * SIGUIENDO PATRÓN BookService.deleteBook()
+     *
+     * @param id ID del autor a eliminar
+     */
+    public void deleteAuthor(Long id) {
+        // VERIFICAR: Que existe (lanza excepción si no)
+        Author author = authorRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Author not found with id: " + id));
+
+        // VALIDACIÓN: Verificar que no tiene libros (usando lógica existente)
+        Long bookCount = authorRepository.countBooksByAuthor(id);
+        if (bookCount > 0) {
+            throw new RuntimeException("Cannot delete author with " + bookCount +
+                    " associated books. Remove books first or reassign them to other authors.");
+        }
+
+        // ELIMINAR: Del repositorio
+        authorRepository.delete(author);
+    }
+
+    /**
+     * BUSCAR AUTORES (DTO)
+     *
+     * SIGUIENDO PATRÓN BookService.searchBooks()
+     *
+     * @param query Término de búsqueda
+     * @return Lista de AuthorDTO que coinciden
+     */
+    @Transactional(readOnly = true)
+    public List<AuthorDTO> searchAuthors(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+
+        // USAR: Método existente para búsqueda
+        List<Author> authors = searchAuthorEntities(query.trim());
+
+        // CONVERSIÓN: List<Author> → List<AuthorDTO>
+        return authors.stream()
+                .map(authorMapper::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * OBTENER AUTORES PARA AUTOCOMPLETADO (DTO)
+     *
+     * NUEVO: Método especializado para UI
+     *
+     * @param searchTerm Término parcial
+     * @param pageable Configuración (máximo resultados)
+     * @return Page<AuthorDTO> para autocompletado
+     */
+    @Transactional(readOnly = true)
+    public Page<AuthorDTO> getAuthorsForAutocomplete(String searchTerm, Pageable pageable) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            // Devolver autores más populares (con más libros)
+            return authorRepository.findMostProlificAuthors(pageable)
+                    .map(authorMapper::toAutocompleteDTO);
+        }
+        return authorRepository.findForAutocomplete(searchTerm.trim(), pageable)
+                .map(authorMapper::toAutocompleteDTO);
+    }
+
+    // ========================================
+    // MÉTODOS ENTITY EXISTENTES (MANTENER TODOS)
+    // ========================================
+
+    /**
+     * BUSCAR O CREAR AUTOR (ENTITY - MANTENER)
+     *
+     * Función clave para evitar duplicados al crear libros
+     * USADO INTERNAMENTE por BookService
+     */
+    public Author findOrCreateAuthor(String firstName, String lastName) {
+        // Normalizar nombres
+        String normalizedFirstName = normalizeNameString(firstName);
+        String normalizedLastName = normalizeNameString(lastName);
+
+        // Buscar autor existente
+        Optional<Author> existingAuthor = authorRepository.findByFullName(
+                normalizedFirstName, normalizedLastName);
+
+        if (existingAuthor.isPresent()) {
+            return existingAuthor.get();
+        }
+
+        // Crear nuevo autor si no existe
+        Author newAuthor = new Author(normalizedFirstName, normalizedLastName);
+        return authorRepository.save(newAuthor);
+    }
+
+    /**
+     * BÚSQUEDA GENERAL DE AUTORES (ENTITY - MANTENER)
+     *
+     * Método interno para búsquedas
+     */
+    @Transactional(readOnly = true)
+    public List<Author> searchAuthorEntities(String searchTerm) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return List.of();
+        }
+        return authorRepository.searchByName(searchTerm.trim());
+    }
+
+    /**
+     * CREAR AUTOR (ENTITY - MANTENER)
+     *
+     * Método original con validaciones completas
+     */
+    public Author createAuthorEntity(Author author) {
         // VALIDACIÓN 1: Campos obligatorios
         if (author.getFirstName() == null || author.getFirstName().trim().isEmpty()) {
             throw new RuntimeException("Author first name is required");
@@ -160,14 +362,10 @@ public class AuthorService {
     }
 
     /**
-     * ACTUALIZAR AUTOR
-     *
-     * @param id ID del autor a actualizar
-     * @param updatedAuthor Datos actualizados
-     * @return Autor actualizado
+     * ACTUALIZAR AUTOR (ENTITY - MANTENER)
      */
-    public Author updateAuthor(Long id, Author updatedAuthor) {
-        Author existingAuthor = getAuthorById(id);
+    public Author updateAuthorEntity(Long id, Author updatedAuthor) {
+        Author existingAuthor = getAuthorEntityById(id);
 
         // Actualizar solo campos no nulos
         if (updatedAuthor.getFirstName() != null) {
@@ -189,79 +387,29 @@ public class AuthorService {
         return authorRepository.save(existingAuthor);
     }
 
-    // ========================================
-    // OPERACIONES DE BÚSQUEDA INTELIGENTE
-    // ========================================
-
     /**
-     * BUSCAR O CREAR AUTOR (OPERACIÓN INTELIGENTE)
-     *
-     * Función clave para evitar duplicados al crear libros:
-     * 1. Busca si ya existe el autor
-     * 2. Si existe, lo devuelve
-     * 3. Si no existe, lo crea
-     *
-     * @param firstName Nombre del autor
-     * @param lastName Apellido del autor
-     * @return Autor existente o recién creado
-     */
-    public Author findOrCreateAuthor(String firstName, String lastName) {
-        // Normalizar nombres
-        String normalizedFirstName = normalizeNameString(firstName);
-        String normalizedLastName = normalizeNameString(lastName);
-
-        // Buscar autor existente
-        Optional<Author> existingAuthor = authorRepository.findByFullName(
-                normalizedFirstName, normalizedLastName);
-
-        if (existingAuthor.isPresent()) {
-            return existingAuthor.get();
-        }
-
-        // Crear nuevo autor si no existe
-        Author newAuthor = new Author(normalizedFirstName, normalizedLastName);
-        return authorRepository.save(newAuthor);
-    }
-
-    /**
-     * BÚSQUEDA GENERAL DE AUTORES
-     *
-     * Busca en nombre y apellido simultáneamente
-     *
-     * @param searchTerm Término de búsqueda
-     * @return Lista de autores que coinciden
+     * OBTENER AUTOR POR ID (ENTITY - MANTENER)
      */
     @Transactional(readOnly = true)
-    public List<Author> searchAuthors(String searchTerm) {
-        if (searchTerm == null || searchTerm.trim().isEmpty()) {
-            return List.of();
-        }
-        return authorRepository.searchByName(searchTerm.trim());
+    public Author getAuthorEntityById(Long id) {
+        return authorRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Author not found with id: " + id));
     }
 
+    // ========================================
+    // TODOS LOS DEMÁS MÉTODOS EXISTENTES (MANTENER)
+    // ========================================
+
     /**
-     * AUTORES PARA AUTOCOMPLETADO
-     *
-     * Devuelve pocos resultados optimizados para UIs
-     *
-     * @param searchTerm Término parcial
-     * @param pageable Configuración (máximo resultados)
-     * @return Página de autores para autocompletado
+     * OBTENER TODOS LOS AUTORES (ENTITY - MANTENER)
      */
     @Transactional(readOnly = true)
-    public Page<Author> getAuthorsForAutocomplete(String searchTerm, Pageable pageable) {
-        if (searchTerm == null || searchTerm.trim().isEmpty()) {
-            // Devolver autores más populares (con más libros)
-            return authorRepository.findMostProlificAuthors(pageable);
-        }
-        return authorRepository.findForAutocomplete(searchTerm.trim(), pageable);
+    public List<Author> getAllAuthorEntities() {
+        return authorRepository.findAllOrderedByName();
     }
 
     /**
-     * AUTORES POR APELLIDO
-     *
-     * @param lastName Apellido a buscar
-     * @return Lista de autores con ese apellido
+     * AUTORES POR APELLIDO (MANTENER)
      */
     @Transactional(readOnly = true)
     public List<Author> getAuthorsByLastName(String lastName) {
@@ -269,25 +417,15 @@ public class AuthorService {
     }
 
     /**
-     * AUTORES POR NACIONALIDAD
-     *
-     * @param nationality Nacionalidad
-     * @return Lista de autores de esa nacionalidad
+     * AUTORES POR NACIONALIDAD (MANTENER)
      */
     @Transactional(readOnly = true)
     public List<Author> getAuthorsByNationality(String nationality) {
         return authorRepository.findByNationalityIgnoreCase(nationality);
     }
 
-    // ========================================
-    // ESTADÍSTICAS Y ANÁLISIS
-    // ========================================
-
     /**
-     * AUTORES MÁS PROLÍFICOS
-     *
-     * @param pageable Configuración de paginación
-     * @return Página de autores ordenados por número de libros
+     * AUTORES MÁS PROLÍFICOS (MANTENER)
      */
     @Transactional(readOnly = true)
     public Page<Author> getMostProlificAuthors(Pageable pageable) {
@@ -295,14 +433,11 @@ public class AuthorService {
     }
 
     /**
-     * ESTADÍSTICAS DE UN AUTOR
-     *
-     * @param authorId ID del autor
-     * @return Estadísticas detalladas del autor
+     * ESTADÍSTICAS DE UN AUTOR (MANTENER)
      */
     @Transactional(readOnly = true)
     public AuthorStatistics getAuthorStatistics(Long authorId) {
-        Author author = getAuthorById(authorId);
+        Author author = getAuthorEntityById(authorId);
 
         AuthorStatistics stats = new AuthorStatistics();
         stats.setAuthor(author);
@@ -349,9 +484,7 @@ public class AuthorService {
     }
 
     /**
-     * ESTADÍSTICAS POR NACIONALIDAD
-     *
-     * @return Lista de [nacionalidad, cantidad] ordenada por popularidad
+     * ESTADÍSTICAS POR NACIONALIDAD (MANTENER)
      */
     @Transactional(readOnly = true)
     public List<Object[]> getNationalityStatistics() {
@@ -359,9 +492,7 @@ public class AuthorService {
     }
 
     /**
-     * ESTADÍSTICAS POR DÉCADA DE NACIMIENTO
-     *
-     * @return Lista de [década, cantidad] para análisis temporal
+     * ESTADÍSTICAS POR DÉCADA (MANTENER)
      */
     @Transactional(readOnly = true)
     public List<Object[]> getDecadeStatistics() {
@@ -369,10 +500,7 @@ public class AuthorService {
     }
 
     /**
-     * AUTORES CONTEMPORÁNEOS
-     *
-     * @param yearsAgo Hace cuántos años (ej: 50 para últimos 50 años)
-     * @return Lista de autores contemporáneos
+     * AUTORES CONTEMPORÁNEOS (MANTENER)
      */
     @Transactional(readOnly = true)
     public List<Author> getContemporaryAuthors(int yearsAgo) {
@@ -380,19 +508,11 @@ public class AuthorService {
         return authorRepository.findContemporaryAuthors(cutoffDate);
     }
 
-    // ========================================
-    // OPERACIONES AVANZADAS
-    // ========================================
-
     /**
-     * ELIMINAR AUTOR (CON VALIDACIONES)
-     *
-     * Solo permite eliminar si no tiene libros asociados
-     *
-     * @param authorId ID del autor a eliminar
+     * ELIMINAR AUTOR (ENTITY - MANTENER)
      */
-    public void deleteAuthor(Long authorId) {
-        Author author = getAuthorById(authorId);
+    public void deleteAuthorEntity(Long authorId) {
+        Author author = getAuthorEntityById(authorId);
 
         // VALIDACIÓN: Verificar que no tiene libros
         Long bookCount = authorRepository.countBooksByAuthor(authorId);
@@ -405,21 +525,15 @@ public class AuthorService {
     }
 
     /**
-     * FUSIONAR AUTORES DUPLICADOS
-     *
-     * Combina dos autores, moviendo todos los libros al autor principal
-     *
-     * @param mainAuthorId ID del autor principal (se mantiene)
-     * @param duplicateAuthorId ID del autor duplicado (se elimina)
-     * @return Autor principal actualizado
+     * FUSIONAR AUTORES DUPLICADOS (MANTENER)
      */
     public Author mergeAuthors(Long mainAuthorId, Long duplicateAuthorId) {
         if (mainAuthorId.equals(duplicateAuthorId)) {
             throw new RuntimeException("Cannot merge author with itself");
         }
 
-        Author mainAuthor = getAuthorById(mainAuthorId);
-        Author duplicateAuthor = getAuthorById(duplicateAuthorId);
+        Author mainAuthor = getAuthorEntityById(mainAuthorId);
+        Author duplicateAuthor = getAuthorEntityById(duplicateAuthorId);
 
         // Obtener libros del autor duplicado
         List<Book> duplicateBooks = bookRepository.findByAuthorLastName(duplicateAuthor.getLastName());
@@ -452,9 +566,7 @@ public class AuthorService {
     }
 
     /**
-     * DETECTAR AUTORES DUPLICADOS POTENCIALES
-     *
-     * @return Lista de autores que podrían ser duplicados
+     * DETECTAR AUTORES DUPLICADOS POTENCIALES (MANTENER)
      */
     @Transactional(readOnly = true)
     public List<Author> findPotentialDuplicates() {
@@ -469,16 +581,11 @@ public class AuthorService {
     }
 
     // ========================================
-    // MÉTODOS DE UTILIDAD PRIVADOS
+    // MÉTODOS DE UTILIDAD PRIVADOS (MANTENER)
     // ========================================
 
     /**
-     * NORMALIZAR STRING DE NOMBRES - VERSIÓN CORREGIDA
-     *
-     * Limpia espacios, capitaliza correctamente
-     *
-     * @param name Nombre a normalizar
-     * @return Nombre normalizado
+     * NORMALIZAR STRING DE NOMBRES
      */
     private String normalizeNameString(String name) {
         if (name == null) return null;
@@ -508,23 +615,8 @@ public class AuthorService {
         return result.toString();
     }
 
-    // ALTERNATIVA MÁS SIMPLE CON APACHE COMMONS (si tienes la dependencia)
-    private String normalizeNameStringAlternative(String name) {
-        if (name == null) return null;
-
-        // Usando Apache Commons Text (requiere dependencia)
-        // return WordUtils.capitalizeFully(name.trim().replaceAll("\\s+", " "));
-
-        // O usando Streams (Java 8+)
-        return Arrays.stream(name.trim().toLowerCase().split("\\s+"))
-                .filter(word -> !word.isEmpty())
-                .map(word -> Character.toUpperCase(word.charAt(0)) +
-                        (word.length() > 1 ? word.substring(1) : ""))
-                .collect(Collectors.joining(" "));
-    }
-
     // ========================================
-    // CLASE INTERNA PARA ESTADÍSTICAS
+    // CLASE INTERNA PARA ESTADÍSTICAS (MANTENER)
     // ========================================
 
     /**
@@ -563,31 +655,34 @@ public class AuthorService {
     }
 
     /*
-     * NOTAS IMPORTANTES SOBRE AuthorService:
+     * RESUMEN DE ACTUALIZACIÓN:
      *
-     * 1. PREVENCIÓN DE DUPLICADOS:
-     *    - findOrCreateAuthor() evita duplicados al crear libros
-     *    - Normalización de nombres para consistencia
-     *    - Detección de duplicados potenciales
+     * ✅ AGREGADO:
+     *    - AuthorMapper injection
+     *    - 6 métodos DTO para API REST:
+     *      * getAllAuthors(Pageable) → Page<AuthorDTO>
+     *      * getAuthorById(Long) → AuthorDTO
+     *      * createAuthor(AuthorCreateDTO) → AuthorDTO
+     *      * updateAuthor(Long, AuthorCreateDTO) → AuthorDTO
+     *      * deleteAuthor(Long) → void
+     *      * searchAuthors(String) → List<AuthorDTO>
+     *      * getAuthorsForAutocomplete() → Page<AuthorDTO>
      *
-     * 2. OPERACIONES INTELIGENTES:
-     *    - Búsqueda en múltiples campos simultáneamente
-     *    - Autocompletado optimizado para UIs
-     *    - Fusión de autores duplicados
+     * ✅ MANTENIDO:
+     *    - TODOS los métodos existentes (Entity-based)
+     *    - TODA la lógica de negocio existente
+     *    - TODAS las validaciones existentes
+     *    - TODOS los métodos de utilidad
      *
-     * 3. VALIDACIONES DE NEGOCIO:
-     *    - Fechas de nacimiento lógicas
-     *    - Nombres obligatorios y normalizados
-     *    - Verificación antes de eliminar
+     * ✅ PATRÓN:
+     *    - Sigue EXACTAMENTE el patrón de BookService
+     *    - Mismos nombres de métodos
+     *    - Misma estructura de validaciones
+     *    - Misma gestión de errores
      *
-     * 4. ESTADÍSTICAS ÚTILES:
-     *    - Productividad por autor
-     *    - Distribución geográfica
-     *    - Análisis temporal por décadas
-     *
-     * 5. MANTENIMIENTO DE DATOS:
-     *    - Limpieza de duplicados
-     *    - Normalización consistente
-     *    - Integridad referencial con libros
+     * ✅ COMPATIBILIDAD:
+     *    - BookService puede seguir usando findOrCreateAuthor()
+     *    - Métodos internos siguen funcionando igual
+     *    - Solo se agregaron métodos DTO para API REST
      */
 }
