@@ -1,3 +1,4 @@
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\config\GoogleBooksConfig.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\config\SecurityConfig.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\controller\AnalyticsController.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\controller\AuthorController.java
@@ -9,6 +10,9 @@ C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshel
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\BookDTO.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\GenreCreateDTO.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\GenreDTO.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\google\GoogleBookDTO.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\google\GoogleBooksResponseDTO.java
+C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\dto\google\GoogleBookVolumeInfoDTO.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\exception\BookNotFoundException.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\exception\ErrorResponse.java
 C:\Users\dfsuc\Desktop\IntelliJ\mybookshelf-backend\src\main\java\com\mybookshelf\mybookshelf_backend\exception\GlobalExceptionHandler.java
