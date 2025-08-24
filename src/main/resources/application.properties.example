@@ -1,0 +1,76 @@
+# ========================================
+# MyBookShelf Backend Configuration Example
+# ========================================
+# Copy this file to application.properties and configure your API key
+# cp application.properties.example application.properties
+
+# ========================================
+# DATABASE CONFIGURATION (H2 Development)
+# ========================================
+spring.datasource.url=jdbc:h2:mem:bookshelf
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=password
+
+# ========================================
+# JPA/HIBERNATE CONFIGURATION
+# ========================================
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.defer-datasource-initialization=true
+spring.jpa.open-in-view=false
+
+# ========================================
+# LOGGING CONFIGURATION
+# ========================================
+logging.level.org.hibernate.SQL=DEBUG
+logging.level.org.hibernate.orm.jdbc.bind=TRACE
+logging.level.org.springframework.web=DEBUG
+logging.level.com.mybookshelf.mybookshelf_backend=DEBUG
+logging.pattern.console=%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n
+spring.output.ansi.enabled=true
+
+# ========================================
+# H2 CONSOLE (Development Only)
+# ========================================
+spring.h2.console.enabled=true
+
+# ========================================
+# SPRING PROFILES
+# ========================================
+spring.profiles.active=dev
+
+# ========================================
+# GOOGLE BOOKS API CONFIGURATION
+# ========================================
+# IMPORTANT: Get your API key from Google Cloud Console:
+# 1. Go to https://console.cloud.google.com/
+# 2. Create a new project or select existing
+# 3. Enable "Books API" in API Library
+# 4. Create Credentials → API Key
+# 5. Restrict to Books API only
+# 6. Replace YOUR_GOOGLE_BOOKS_API_KEY_HERE with your actual key
+google.books.api.key=YOUR_GOOGLE_BOOKS_API_KEY_HERE
+google.books.api.url=https://www.googleapis.com/books/v1/volumes
+google.books.timeout=5000
+google.books.max.results=40
+
+# ========================================
+# SERVER CONFIGURATION
+# ========================================
+server.port=8080
+S
+# ========================================
+# VALIDATION CONFIGURATION
+# ========================================
+spring.mvc.problemdetails.enabled=true
+
+# ========================================
+# SECURITY NOTES
+# ========================================
+# - NEVER commit application.properties with real API keys to git
+# - This file (application.properties.example) is safe to commit
+# - application.properties is included in .gitignore for security
+# - Always use environment variables in production

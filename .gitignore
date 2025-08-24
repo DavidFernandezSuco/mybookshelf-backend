@@ -12,3 +12,15 @@
 /.nb-gradle/
 
 .vscode/
+
+# Configuration files with sensitive data
+src/main/resources/application.properties
+
+# API Keys and sensitive configuration (never commit)
+*.env
+.env
+*.key
+
+# Maven build directory
+target/
+
