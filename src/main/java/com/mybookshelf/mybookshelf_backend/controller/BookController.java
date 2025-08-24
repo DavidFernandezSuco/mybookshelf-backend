@@ -16,6 +16,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import com.mybookshelf.mybookshelf_backend.service.GoogleBooksService;
+import com.mybookshelf.mybookshelf_backend.dto.google.GoogleBookDTO;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import java.net.URI;
 
 import java.net.URI;
 import java.util.List;
@@ -53,10 +57,12 @@ public class BookController {
 
     private final BookService bookService;
     private final BookMapper bookMapper;
+    private final GoogleBooksService googleBooksService;
 
-    public BookController(BookService bookService, BookMapper bookMapper) {
+    public BookController(BookService bookService, BookMapper bookMapper, GoogleBooksService googleBooksService) {
         this.bookService = bookService;
         this.bookMapper = bookMapper;
+        this.googleBooksService = googleBooksService;
     }
 
     // ========================================
@@ -243,6 +249,194 @@ public class BookController {
         public Integer getCurrentPage() { return currentPage; }
         public void setCurrentPage(Integer currentPage) { this.currentPage = currentPage; }
     }
+
+    // ========================================
+// ENDPOINTS DE INTEGRACIÓN GOOGLE BOOKS
+// ========================================
+
+    /**
+     * GET /api/books/search-external - BUSCAR LIBROS EN GOOGLE BOOKS
+     *
+     * NUEVO ENDPOINT FASE 4: Búsqueda externa para enriquecer catálogo
+     *
+     * Usa: googleBooksService.searchBooks(String) → retorna List<GoogleBookDTO>
+     * Complementa: GET /api/books/search (búsqueda local existente)
+     *
+     * Parámetros:
+     * - q: término de búsqueda (ej: "clean code", "java programming")
+     * - maxResults: límite de resultados (opcional, default 10)
+     *
+     * Ejemplos de uso:
+     * - GET /api/books/search-external?q=clean+code
+     * - GET /api/books/search-external?q=spring+boot&maxResults=5
+     *
+     * Respuesta: Lista de GoogleBookDTO con datos de Google Books API
+     * HTTP 200: Búsqueda exitosa (puede ser lista vacía)
+     * HTTP 400: Query vacío o inválido
+     * HTTP 500: Error de comunicación con Google Books API
+     */
+    @GetMapping("/search-external")
+    public ResponseEntity<List<GoogleBookDTO>> searchExternalBooks(
+            @RequestParam("q") String query,
+            @RequestParam(value = "maxResults", defaultValue = "10") Integer maxResults) {
+
+        // Validación de entrada
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        if (maxResults < 1 || maxResults > 40) {
+            maxResults = 10; // Default seguro
+        }
+
+        // Llamada al service - maneja automáticamente errores de API externa
+        List<GoogleBookDTO> externalBooks = googleBooksService.searchBooks(query.trim());
+
+        return ResponseEntity.ok(externalBooks);
+    }
+
+    /**
+     * POST /api/books/import-google - IMPORTAR LIBRO DESDE GOOGLE BOOKS
+     *
+     * NUEVO ENDPOINT FASE 4: Importación con 1 clic desde búsqueda externa
+     *
+     * Usa: googleBooksService.importBook(String, BookStatus) → retorna Book
+     * Convierte: Book → BookDTO usando bookMapper
+     *
+     * Body ejemplo:
+     * {
+     *   "googleBooksId": "abc123xyz",
+     *   "status": "WISHLIST"
+     * }
+     *
+     * Respuesta: BookDTO del libro importado con autores y géneros
+     * HTTP 201: Libro importado exitosamente
+     * HTTP 400: ID inválido, parámetros faltantes o libro ya existe
+     * HTTP 500: Error de comunicación con Google Books API
+     */
+    @PostMapping("/import-google")
+    public ResponseEntity<BookDTO> importFromGoogleBooks(@Valid @RequestBody ImportGoogleBookRequest request) {
+
+        // Validación adicional
+        if (request.getGoogleBooksId() == null || request.getGoogleBooksId().trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Default status si no se proporciona
+        BookStatus status = request.getStatus() != null ? request.getStatus() : BookStatus.WISHLIST;
+
+        try {
+            // Importar usando GoogleBooksService
+            Book importedBook = googleBooksService.importFromGoogle(request.getGoogleBooksId().trim(), status);
+
+            // Convertir a DTO para respuesta
+            BookDTO importedBookDTO = bookMapper.toDTO(importedBook);
+
+            // Crear URI del nuevo recurso
+            URI location = ServletUriComponentsBuilder
+                    .fromCurrentContextPath()
+                    .path("/api/books/{id}")
+                    .buildAndExpand(importedBookDTO.getId())
+                    .toUri();
+
+            return ResponseEntity.created(location).body(importedBookDTO);
+
+        } catch (IllegalArgumentException e) {
+            // Error de validación o duplicado
+            return ResponseEntity.badRequest().build();
+        } catch (RuntimeException e) {
+            // Error de Google Books API o libro no encontrado
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * DTO para request de importación desde Google Books
+     */
+    public static class ImportGoogleBookRequest {
+
+        @jakarta.validation.constraints.NotBlank(message = "Google Books ID is required")
+        private String googleBooksId;
+
+        private BookStatus status;
+
+        // Getters y Setters
+        public String getGoogleBooksId() { return googleBooksId; }
+        public void setGoogleBooksId(String googleBooksId) { this.googleBooksId = googleBooksId; }
+
+        public BookStatus getStatus() { return status; }
+        public void setStatus(BookStatus status) { this.status = status; }
+    }
+
+    /**
+     * PATCH /api/books/{id}/enrich-google - ENRIQUECER LIBRO CON GOOGLE BOOKS
+     *
+     * NUEVO ENDPOINT FASE 4: Enriquecimiento de libros existentes con datos externos
+     *
+     * Usa: googleBooksService.enrichExistingBook(Long, String) → retorna Book
+     * Convierte: Book → BookDTO usando bookMapper
+     *
+     * Mejora libros existentes añadiendo:
+     * - Descripción completa
+     * - ISBN si falta
+     * - Número de páginas
+     * - Publisher
+     * - Y otros metadatos de Google Books
+     *
+     * Path ejemplo: /api/books/123/enrich-google
+     * Body: { "googleBooksId": "abc123xyz" }
+     *
+     * Respuesta: BookDTO enriquecido con datos actualizados
+     * HTTP 200: Enriquecimiento exitoso (con o sin cambios)
+     * HTTP 400: IDs inválidos o libro no encontrado
+     * HTTP 404: Libro no existe en tu biblioteca
+     */
+    @PatchMapping("/{id}/enrich-google")
+    public ResponseEntity<BookDTO> enrichBookWithGoogleData(
+            @PathVariable Long id,
+            @Valid @RequestBody EnrichBookRequest request) {
+
+        // Validación de parámetros
+        if (id == null || id <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        if (request.getGoogleBooksId() == null || request.getGoogleBooksId().trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            // Enriquecer usando GoogleBooksService
+            Book enrichedBook = googleBooksService.enrichExistingBook(id, request.getGoogleBooksId().trim());
+
+            // Convertir a DTO para respuesta
+            BookDTO enrichedBookDTO = bookMapper.toDTO(enrichedBook);
+
+            return ResponseEntity.ok(enrichedBookDTO);
+
+        } catch (RuntimeException e) {
+            // Manejar errores: libro no encontrado, Google Books no disponible, etc.
+            if (e.getMessage().contains("not found")) {
+                return ResponseEntity.notFound().build();
+            } else {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+    }
+
+    /**
+     * DTO para request de enriquecimiento con Google Books
+     */
+    public static class EnrichBookRequest {
+
+        @jakarta.validation.constraints.NotBlank(message = "Google Books ID is required")
+        private String googleBooksId;
+
+        // Getters y Setters
+        public String getGoogleBooksId() { return googleBooksId; }
+        public void setGoogleBooksId(String googleBooksId) { this.googleBooksId = googleBooksId; }
+    }
+
 
     /*
      * NOTAS PARA PORTFOLIO JUNIOR:
