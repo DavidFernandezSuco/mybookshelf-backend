@@ -3,10 +3,15 @@ package com.mybookshelf.mybookshelf_backend.controller;
 // IMPORTS: Librerías necesarias para REST Controllers
 import com.mybookshelf.mybookshelf_backend.dto.BookCreateDTO;
 import com.mybookshelf.mybookshelf_backend.dto.BookDTO;
+import com.mybookshelf.mybookshelf_backend.dto.google.GoogleBookDTO;
+import com.mybookshelf.mybookshelf_backend.dto.HybridSearchResponseDTO;
+import com.mybookshelf.mybookshelf_backend.dto.AutocompleteResponseDTO;
+import com.mybookshelf.mybookshelf_backend.dto.BookSuggestionResponseDTO;
 import com.mybookshelf.mybookshelf_backend.mapper.BookMapper;
 import com.mybookshelf.mybookshelf_backend.model.Book;
 import com.mybookshelf.mybookshelf_backend.model.BookStatus;
 import com.mybookshelf.mybookshelf_backend.service.BookService;
+import com.mybookshelf.mybookshelf_backend.service.GoogleBooksService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,33 +21,44 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import com.mybookshelf.mybookshelf_backend.service.GoogleBooksService;
-import com.mybookshelf.mybookshelf_backend.dto.google.GoogleBookDTO;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import java.net.URI;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Set;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 /**
  * CLASE BookController - REST API para gestión de libros
  *
- * VERSIÓN ADAPTADA PARA PORTFOLIO JUNIOR
- * - Usar exactamente los métodos que existen en BookService
- * - Endpoints core funcionales inmediatamente
- * - Código limpio y bien documentado
- * - Fácil de testear y demostrar
+ * VERSIÓN COMPLETA CON INTEGRACIÓN GOOGLE BOOKS + ENDPOINTS HÍBRIDOS
+ * - Endpoints core funcionales (Fases 1-3)
+ * - Integración Google Books (Fase 4)
+ * - Funcionalidades híbridas (Fase 5) - ✅ COMPLETADAS
+ * - DTOs de respuesta profesionales implementados
  *
- * ENDPOINTS IMPLEMENTADOS (adaptados al Service real):
+ * ENDPOINTS IMPLEMENTADOS:
+ * CORE (8):
  * - GET /api/books - Listar libros paginados
  * - GET /api/books/{id} - Obtener libro específico
  * - POST /api/books - Crear nuevo libro
  * - PATCH /api/books/{id}/progress - Actualizar progreso
  * - DELETE /api/books/{id} - Eliminar libro
- * - GET /api/books/search - Buscar libros
+ * - GET /api/books/search - Buscar libros locales
  * - GET /api/books/status/{status} - Filtrar por estado
+ * - GET /api/books/currently-reading - Libros en curso
+ *
+ * GOOGLE BOOKS (3):
+ * - GET /api/books/search-external - Búsqueda externa
+ * - POST /api/books/import-google - Importar desde Google Books
+ * - PATCH /api/books/{id}/enrich-google - Enriquecer con datos externos
+ *
+ * HÍBRIDOS (3):
+ * - GET /api/books/search-hybrid - Búsqueda local + externa unificada ✅
+ * - GET /api/books/autocomplete - Autocompletado inteligente ✅
+ * - GET /api/books/suggestions - Sugerencias para creación ✅
+ *
+ * TOTAL: 14 ENDPOINTS FUNCIONALES
  */
 
 @RestController
@@ -66,14 +82,11 @@ public class BookController {
     }
 
     // ========================================
-    // ENDPOINTS DE CONSULTA (GET)
+    // ENDPOINTS CORE - GESTIÓN BÁSICA (FASES 1-3)
     // ========================================
 
     /**
      * GET /api/books - LISTAR TODOS LOS LIBROS
-     *
-     * Usa: bookService.getAllBooks(Pageable) → retorna Page<Book>
-     * Convierte: Page<Book> → Page<BookDTO> usando mapper
      */
     @GetMapping
     public ResponseEntity<Page<BookDTO>> getAllBooks(
@@ -82,14 +95,11 @@ public class BookController {
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
 
-        // Crear configuración de paginación
         Sort sort = sortDir.equalsIgnoreCase("desc") ?
                 Sort.by(sortBy).descending() :
                 Sort.by(sortBy).ascending();
 
         Pageable pageable = PageRequest.of(page, size, sort);
-
-        // BookService retorna Page<Book> - convertir a Page<BookDTO>
         Page<Book> bookEntities = bookService.getAllBooks(pageable);
         Page<BookDTO> bookDTOs = bookEntities.map(bookMapper::toDTO);
 
@@ -98,9 +108,6 @@ public class BookController {
 
     /**
      * GET /api/books/{id} - OBTENER LIBRO POR ID
-     *
-     * Usa: bookService.getBookById(Long) → retorna Book
-     * Convierte: Book → BookDTO usando mapper
      */
     @GetMapping("/{id}")
     public ResponseEntity<BookDTO> getBookById(@PathVariable Long id) {
@@ -110,10 +117,7 @@ public class BookController {
     }
 
     /**
-     * GET /api/books/search - BUSCAR LIBROS
-     *
-     * Usa: bookService.searchBooks(String) → retorna List<Book>
-     * Convierte: List<Book> → List<BookDTO> usando mapper
+     * GET /api/books/search - BUSCAR LIBROS LOCALES
      */
     @GetMapping("/search")
     public ResponseEntity<List<BookDTO>> searchBooks(@RequestParam("q") String query) {
@@ -131,15 +135,10 @@ public class BookController {
 
     /**
      * GET /api/books/status/{status} - FILTRAR POR ESTADO
-     *
-     * Usa: bookService.getBooksByStatus(BookStatus)
-     * NOTA: Service retorna List<Book>, necesitamos convertir a DTO
      */
     @GetMapping("/status/{status}")
     public ResponseEntity<List<BookDTO>> getBooksByStatus(@PathVariable BookStatus status) {
         List<Book> books = bookService.getBooksByStatus(status);
-
-        // Convertir List<Book> a List<BookDTO> usando el mapper
         List<BookDTO> bookDTOs = books.stream()
                 .map(bookMapper::toDTO)
                 .collect(Collectors.toList());
@@ -149,15 +148,10 @@ public class BookController {
 
     /**
      * GET /api/books/currently-reading - LIBROS LEYENDO ACTUALMENTE
-     *
-     * Usa: bookService.getCurrentlyReadingBooks()
-     * NOTA: Service retorna List<Book>, convertimos a DTO
      */
     @GetMapping("/currently-reading")
     public ResponseEntity<List<BookDTO>> getCurrentlyReadingBooks() {
         List<Book> books = bookService.getCurrentlyReadingBooks(BookStatus.READING);
-
-        // Convertir a DTOs
         List<BookDTO> bookDTOs = books.stream()
                 .map(bookMapper::toDTO)
                 .collect(Collectors.toList());
@@ -165,32 +159,22 @@ public class BookController {
         return ResponseEntity.ok(bookDTOs);
     }
 
-    // ========================================
-    // ENDPOINTS DE CREACIÓN (POST)
-    // ========================================
-
     /**
      * POST /api/books - CREAR NUEVO LIBRO
-     *
-     * Usa: bookService.createBook(BookCreateDTO) → retorna Book
-     * Tu Service maneja authorIds y genreIds internamente desde el DTO
      */
     @PostMapping
     public ResponseEntity<BookDTO> createBook(@Valid @RequestBody BookCreateDTO createDTO) {
 
-        // Validación adicional del mapper
         if (!bookMapper.isValidForConversion(createDTO)) {
             return ResponseEntity.badRequest().build();
         }
 
-        // Tu BookService maneja authorIds y genreIds internamente
-        Book bookEntity = bookMapper.toEntity(createDTO);           // 1. DTO → Entity
-        Set<Long> authorIds = createDTO.getAuthorIds();            // 2. Extraer author IDs
-        Set<Long> genreIds = createDTO.getGenreIds();              // 3. Extraer genre IDs
-        Book createdBook = bookService.createBook(bookEntity, authorIds, genreIds); // 4. Llamar Service real
-        BookDTO createdBookDTO = bookMapper.toDTO(createdBook);     // 5. Entity → DTO
+        Book bookEntity = bookMapper.toEntity(createDTO);
+        Set<Long> authorIds = createDTO.getAuthorIds();
+        Set<Long> genreIds = createDTO.getGenreIds();
+        Book createdBook = bookService.createBook(bookEntity, authorIds, genreIds);
+        BookDTO createdBookDTO = bookMapper.toDTO(createdBook);
 
-        // Crear URI del nuevo recurso
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
@@ -200,15 +184,8 @@ public class BookController {
         return ResponseEntity.created(location).body(createdBookDTO);
     }
 
-    // ========================================
-    // ENDPOINTS DE ACTUALIZACIÓN (PATCH)
-    // ========================================
-
     /**
      * PATCH /api/books/{id}/progress - ACTUALIZAR PROGRESO
-     *
-     * Usa: bookService.updateBookProgress(Long, Integer) → retorna Book
-     * Convierte: Book → BookDTO usando mapper
      */
     @PatchMapping("/{id}/progress")
     public ResponseEntity<BookDTO> updateBookProgress(
@@ -220,19 +197,303 @@ public class BookController {
         return ResponseEntity.ok(updatedBookDTO);
     }
 
-    // ========================================
-    // ENDPOINTS DE ELIMINACIÓN (DELETE)
-    // ========================================
-
     /**
      * DELETE /api/books/{id} - ELIMINAR LIBRO
-     *
-     * Usa: bookService.deleteBook(Long)
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
         bookService.deleteBook(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ========================================
+    // ENDPOINTS DE INTEGRACIÓN GOOGLE BOOKS (FASE 4)
+    // ========================================
+
+    /**
+     * GET /api/books/search-external - BUSCAR LIBROS EN GOOGLE BOOKS
+     */
+    @GetMapping("/search-external")
+    public ResponseEntity<List<GoogleBookDTO>> searchExternalBooks(
+            @RequestParam("q") String query,
+            @RequestParam(value = "maxResults", defaultValue = "10") Integer maxResults) {
+
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        if (maxResults < 1 || maxResults > 40) {
+            maxResults = 10;
+        }
+
+        List<GoogleBookDTO> externalBooks = googleBooksService.searchBooks(query.trim());
+        return ResponseEntity.ok(externalBooks);
+    }
+
+    /**
+     * POST /api/books/import-google - IMPORTAR LIBRO DESDE GOOGLE BOOKS
+     */
+    @PostMapping("/import-google")
+    public ResponseEntity<BookDTO> importFromGoogleBooks(@Valid @RequestBody ImportGoogleBookRequest request) {
+
+        if (request.getGoogleBooksId() == null || request.getGoogleBooksId().trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        BookStatus status = request.getStatus() != null ? request.getStatus() : BookStatus.WISHLIST;
+
+        try {
+            Book importedBook = googleBooksService.importFromGoogle(request.getGoogleBooksId().trim(), status);
+            BookDTO importedBookDTO = bookMapper.toDTO(importedBook);
+
+            URI location = ServletUriComponentsBuilder
+                    .fromCurrentContextPath()
+                    .path("/api/books/{id}")
+                    .buildAndExpand(importedBookDTO.getId())
+                    .toUri();
+
+            return ResponseEntity.created(location).body(importedBookDTO);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * PATCH /api/books/{id}/enrich-google - ENRIQUECER LIBRO CON GOOGLE BOOKS
+     */
+    @PatchMapping("/{id}/enrich-google")
+    public ResponseEntity<BookDTO> enrichBookWithGoogleData(
+            @PathVariable Long id,
+            @Valid @RequestBody EnrichBookRequest request) {
+
+        if (id == null || id <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        if (request.getGoogleBooksId() == null || request.getGoogleBooksId().trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            Book enrichedBook = googleBooksService.enrichExistingBook(id, request.getGoogleBooksId().trim());
+            BookDTO enrichedBookDTO = bookMapper.toDTO(enrichedBook);
+            return ResponseEntity.ok(enrichedBookDTO);
+
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("not found")) {
+                return ResponseEntity.notFound().build();
+            } else {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+    }
+
+    // ========================================
+    // ENDPOINTS HÍBRIDOS Y MEJORAS UX - FASE 5 ✅ COMPLETADOS
+    // ========================================
+
+    /**
+     * GET /api/books/search-hybrid - BÚSQUEDA HÍBRIDA (Local + Externa)
+     *
+     * FASE 5: Combina búsqueda local y externa en una respuesta unificada
+     */
+    @GetMapping("/search-hybrid")
+    public ResponseEntity<HybridSearchResponseDTO> searchHybrid(
+            @RequestParam("q") String query,
+            @RequestParam(value = "includeExternal", defaultValue = "true") Boolean includeExternal,
+            @RequestParam(value = "localOnly", defaultValue = "false") Boolean localOnly) {
+
+        // Validación de entrada
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            // 1. Búsqueda local SIEMPRE
+            List<Book> localBooks = bookService.searchBooks(query.trim());
+            List<BookDTO> localResults = localBooks.stream()
+                    .map(bookMapper::toDTO)
+                    .collect(Collectors.toList());
+
+            // 2. Búsqueda externa SOLO si se solicita
+            List<GoogleBookDTO> externalResults = new ArrayList<>();
+            if (includeExternal && !localOnly) {
+                try {
+                    externalResults = googleBooksService.searchBooks(query.trim());
+                } catch (Exception e) {
+                    // Continuar solo con resultados locales si falla externa
+                }
+            }
+
+            // 3. Construir respuesta con DTO
+            HybridSearchResponseDTO response = new HybridSearchResponseDTO(
+                    query.trim(),
+                    localResults,
+                    externalResults
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            // Fallback a solo búsqueda local en caso de error
+            List<Book> localBooks = bookService.searchBooks(query.trim());
+            List<BookDTO> localResults = localBooks.stream()
+                    .map(bookMapper::toDTO)
+                    .collect(Collectors.toList());
+
+            HybridSearchResponseDTO fallbackResponse = new HybridSearchResponseDTO(
+                    query.trim(),
+                    localResults,
+                    new ArrayList<>()
+            );
+            fallbackResponse.setNote("External search temporarily unavailable");
+
+            return ResponseEntity.ok(fallbackResponse);
+        }
+    }
+
+    /**
+     * GET /api/books/autocomplete - AUTOCOMPLETADO INTELIGENTE
+     *
+     * FASE 5: Sugerencias mientras el usuario escribe
+     */
+    @GetMapping("/autocomplete")
+    public ResponseEntity<AutocompleteResponseDTO> getAutocompleteSuggestions(
+            @RequestParam("q") String query,
+            @RequestParam(value = "limit", defaultValue = "8") Integer limit) {
+
+        // Validación: mínimo 2 caracteres para autocompletado
+        if (query == null || query.trim().length() < 2) {
+            AutocompleteResponseDTO emptyResponse = new AutocompleteResponseDTO();
+            emptyResponse.setQuery(query != null ? query.trim() : "");
+            return ResponseEntity.ok(emptyResponse);
+        }
+
+        if (limit < 1 || limit > 20) {
+            limit = 8;
+        }
+
+        try {
+            AutocompleteResponseDTO response = new AutocompleteResponseDTO();
+            response.setQuery(query.trim());
+
+            // 1. Sugerencias desde biblioteca local (más relevantes)
+            List<Book> localBooks = bookService.searchBooks(query.trim());
+            localBooks.stream()
+                    .limit(limit / 2) // Máximo la mitad de sugerencias locales
+                    .forEach(book -> response.addSuggestion(book.getTitle(), "local"));
+
+            // 2. Sugerencias desde Google Books (si hay espacio)
+            if (response.getCount() < limit) {
+                try {
+                    List<String> externalSuggestions = googleBooksService.getAutocompleteSuggestions(query.trim());
+                    externalSuggestions.stream()
+                            .limit(limit - response.getCount())
+                            .filter(title -> !response.getSuggestions().contains(title)) // Evitar duplicados
+                            .forEach(title -> response.addSuggestion(title, "external"));
+                } catch (Exception e) {
+                    // Ignorar errores externos en autocompletado
+                }
+            }
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            // Fallback solo con datos locales
+            AutocompleteResponseDTO fallbackResponse = new AutocompleteResponseDTO();
+            fallbackResponse.setQuery(query.trim());
+
+            List<Book> localBooks = bookService.searchBooks(query.trim());
+            localBooks.stream()
+                    .limit(limit)
+                    .forEach(book -> fallbackResponse.addSuggestion(book.getTitle(), "local"));
+
+            return ResponseEntity.ok(fallbackResponse);
+        }
+    }
+
+    /**
+     * GET /api/books/suggestions - SUGERENCIAS PARA CREACIÓN DE LIBROS
+     *
+     * FASE 5: Ayuda inteligente al crear libros nuevos
+     */
+    @GetMapping("/suggestions")
+    public ResponseEntity<BookSuggestionResponseDTO> getBookCreationSuggestions(
+            @RequestParam("title") String title,
+            @RequestParam(value = "author", required = false) String author) {
+
+        // Validación de entrada
+        if (title == null || title.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            // 1. Buscar coincidencias exactas en biblioteca local
+            List<Book> exactMatches = bookService.searchBooks(title.trim())
+                    .stream()
+                    .filter(book -> book.getTitle().toLowerCase().equals(title.trim().toLowerCase()))
+                    .collect(Collectors.toList());
+
+            // 2. Buscar libros similares
+            List<Book> similarBooks = bookService.searchBooks(title.trim())
+                    .stream()
+                    .filter(book -> !book.getTitle().toLowerCase().equals(title.trim().toLowerCase()))
+                    .limit(3)
+                    .collect(Collectors.toList());
+
+            // 3. Buscar sugerencias en Google Books
+            List<GoogleBookDTO> googleSuggestions = new ArrayList<>();
+            try {
+                googleSuggestions = googleBooksService.getCreationSuggestions(title.trim(), author);
+            } catch (Exception e) {
+                // Ignorar errores de Google Books
+            }
+
+            // 4. Generar recomendación
+            String recommendation;
+            String message;
+
+            if (!exactMatches.isEmpty()) {
+                recommendation = BookSuggestionResponseDTO.Recommendation.EXISTS;
+                message = BookSuggestionResponseDTO.Messages.EXISTS;
+            } else if (!similarBooks.isEmpty()) {
+                recommendation = BookSuggestionResponseDTO.Recommendation.SIMILAR;
+                message = BookSuggestionResponseDTO.Messages.SIMILAR;
+            } else {
+                recommendation = BookSuggestionResponseDTO.Recommendation.CREATE;
+                message = BookSuggestionResponseDTO.Messages.CREATE;
+            }
+
+            // 5. Construir respuesta
+            BookSuggestionResponseDTO response = new BookSuggestionResponseDTO(
+                    title.trim(),
+                    author != null ? author.trim() : "",
+                    exactMatches.isEmpty() ? null : bookMapper.toDTO(exactMatches.get(0)),
+                    similarBooks.stream().map(bookMapper::toDTO).collect(Collectors.toList()),
+                    googleSuggestions,
+                    recommendation,
+                    message
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            // Error fallback
+            BookSuggestionResponseDTO errorResponse = new BookSuggestionResponseDTO(
+                    title.trim(),
+                    author != null ? author.trim() : "",
+                    null,
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    BookSuggestionResponseDTO.Recommendation.ERROR,
+                    BookSuggestionResponseDTO.Messages.ERROR
+            );
+
+            return ResponseEntity.ok(errorResponse);
+        }
     }
 
     // ========================================
@@ -250,106 +511,6 @@ public class BookController {
         public void setCurrentPage(Integer currentPage) { this.currentPage = currentPage; }
     }
 
-    // ========================================
-// ENDPOINTS DE INTEGRACIÓN GOOGLE BOOKS
-// ========================================
-
-    /**
-     * GET /api/books/search-external - BUSCAR LIBROS EN GOOGLE BOOKS
-     *
-     * NUEVO ENDPOINT FASE 4: Búsqueda externa para enriquecer catálogo
-     *
-     * Usa: googleBooksService.searchBooks(String) → retorna List<GoogleBookDTO>
-     * Complementa: GET /api/books/search (búsqueda local existente)
-     *
-     * Parámetros:
-     * - q: término de búsqueda (ej: "clean code", "java programming")
-     * - maxResults: límite de resultados (opcional, default 10)
-     *
-     * Ejemplos de uso:
-     * - GET /api/books/search-external?q=clean+code
-     * - GET /api/books/search-external?q=spring+boot&maxResults=5
-     *
-     * Respuesta: Lista de GoogleBookDTO con datos de Google Books API
-     * HTTP 200: Búsqueda exitosa (puede ser lista vacía)
-     * HTTP 400: Query vacío o inválido
-     * HTTP 500: Error de comunicación con Google Books API
-     */
-    @GetMapping("/search-external")
-    public ResponseEntity<List<GoogleBookDTO>> searchExternalBooks(
-            @RequestParam("q") String query,
-            @RequestParam(value = "maxResults", defaultValue = "10") Integer maxResults) {
-
-        // Validación de entrada
-        if (query == null || query.trim().isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        if (maxResults < 1 || maxResults > 40) {
-            maxResults = 10; // Default seguro
-        }
-
-        // Llamada al service - maneja automáticamente errores de API externa
-        List<GoogleBookDTO> externalBooks = googleBooksService.searchBooks(query.trim());
-
-        return ResponseEntity.ok(externalBooks);
-    }
-
-    /**
-     * POST /api/books/import-google - IMPORTAR LIBRO DESDE GOOGLE BOOKS
-     *
-     * NUEVO ENDPOINT FASE 4: Importación con 1 clic desde búsqueda externa
-     *
-     * Usa: googleBooksService.importBook(String, BookStatus) → retorna Book
-     * Convierte: Book → BookDTO usando bookMapper
-     *
-     * Body ejemplo:
-     * {
-     *   "googleBooksId": "abc123xyz",
-     *   "status": "WISHLIST"
-     * }
-     *
-     * Respuesta: BookDTO del libro importado con autores y géneros
-     * HTTP 201: Libro importado exitosamente
-     * HTTP 400: ID inválido, parámetros faltantes o libro ya existe
-     * HTTP 500: Error de comunicación con Google Books API
-     */
-    @PostMapping("/import-google")
-    public ResponseEntity<BookDTO> importFromGoogleBooks(@Valid @RequestBody ImportGoogleBookRequest request) {
-
-        // Validación adicional
-        if (request.getGoogleBooksId() == null || request.getGoogleBooksId().trim().isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        // Default status si no se proporciona
-        BookStatus status = request.getStatus() != null ? request.getStatus() : BookStatus.WISHLIST;
-
-        try {
-            // Importar usando GoogleBooksService
-            Book importedBook = googleBooksService.importFromGoogle(request.getGoogleBooksId().trim(), status);
-
-            // Convertir a DTO para respuesta
-            BookDTO importedBookDTO = bookMapper.toDTO(importedBook);
-
-            // Crear URI del nuevo recurso
-            URI location = ServletUriComponentsBuilder
-                    .fromCurrentContextPath()
-                    .path("/api/books/{id}")
-                    .buildAndExpand(importedBookDTO.getId())
-                    .toUri();
-
-            return ResponseEntity.created(location).body(importedBookDTO);
-
-        } catch (IllegalArgumentException e) {
-            // Error de validación o duplicado
-            return ResponseEntity.badRequest().build();
-        } catch (RuntimeException e) {
-            // Error de Google Books API o libro no encontrado
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
     /**
      * DTO para request de importación desde Google Books
      */
@@ -360,68 +521,11 @@ public class BookController {
 
         private BookStatus status;
 
-        // Getters y Setters
         public String getGoogleBooksId() { return googleBooksId; }
         public void setGoogleBooksId(String googleBooksId) { this.googleBooksId = googleBooksId; }
 
         public BookStatus getStatus() { return status; }
         public void setStatus(BookStatus status) { this.status = status; }
-    }
-
-    /**
-     * PATCH /api/books/{id}/enrich-google - ENRIQUECER LIBRO CON GOOGLE BOOKS
-     *
-     * NUEVO ENDPOINT FASE 4: Enriquecimiento de libros existentes con datos externos
-     *
-     * Usa: googleBooksService.enrichExistingBook(Long, String) → retorna Book
-     * Convierte: Book → BookDTO usando bookMapper
-     *
-     * Mejora libros existentes añadiendo:
-     * - Descripción completa
-     * - ISBN si falta
-     * - Número de páginas
-     * - Publisher
-     * - Y otros metadatos de Google Books
-     *
-     * Path ejemplo: /api/books/123/enrich-google
-     * Body: { "googleBooksId": "abc123xyz" }
-     *
-     * Respuesta: BookDTO enriquecido con datos actualizados
-     * HTTP 200: Enriquecimiento exitoso (con o sin cambios)
-     * HTTP 400: IDs inválidos o libro no encontrado
-     * HTTP 404: Libro no existe en tu biblioteca
-     */
-    @PatchMapping("/{id}/enrich-google")
-    public ResponseEntity<BookDTO> enrichBookWithGoogleData(
-            @PathVariable Long id,
-            @Valid @RequestBody EnrichBookRequest request) {
-
-        // Validación de parámetros
-        if (id == null || id <= 0) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        if (request.getGoogleBooksId() == null || request.getGoogleBooksId().trim().isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        try {
-            // Enriquecer usando GoogleBooksService
-            Book enrichedBook = googleBooksService.enrichExistingBook(id, request.getGoogleBooksId().trim());
-
-            // Convertir a DTO para respuesta
-            BookDTO enrichedBookDTO = bookMapper.toDTO(enrichedBook);
-
-            return ResponseEntity.ok(enrichedBookDTO);
-
-        } catch (RuntimeException e) {
-            // Manejar errores: libro no encontrado, Google Books no disponible, etc.
-            if (e.getMessage().contains("not found")) {
-                return ResponseEntity.notFound().build();
-            } else {
-                return ResponseEntity.badRequest().build();
-            }
-        }
     }
 
     /**
@@ -432,9 +536,44 @@ public class BookController {
         @jakarta.validation.constraints.NotBlank(message = "Google Books ID is required")
         private String googleBooksId;
 
-        // Getters y Setters
         public String getGoogleBooksId() { return googleBooksId; }
         public void setGoogleBooksId(String googleBooksId) { this.googleBooksId = googleBooksId; }
     }
-
 }
+
+/*
+ * ✅ BOOKCONTROLLER COMPLETAMENTE FUNCIONAL - FASE 5 TERMINADA
+ *
+ * ENDPOINTS IMPLEMENTADOS (14 TOTAL):
+ *
+ * CORE (8):
+ * - GET /api/books ✅
+ * - GET /api/books/{id} ✅
+ * - GET /api/books/search ✅
+ * - GET /api/books/status/{status} ✅
+ * - GET /api/books/currently-reading ✅
+ * - POST /api/books ✅
+ * - PATCH /api/books/{id}/progress ✅
+ * - DELETE /api/books/{id} ✅
+ *
+ * GOOGLE BOOKS (3):
+ * - GET /api/books/search-external ✅
+ * - POST /api/books/import-google ✅
+ * - PATCH /api/books/{id}/enrich-google ✅
+ *
+ * HÍBRIDOS (3):
+ * - GET /api/books/search-hybrid ✅ NUEVO
+ * - GET /api/books/autocomplete ✅ NUEVO
+ * - GET /api/books/suggestions ✅ NUEVO
+ *
+ * VALOR PROFESIONAL:
+ * ✅ DTOs consistentes en todas las respuestas
+ * ✅ Manejo de errores robusto con fallbacks
+ * ✅ Validaciones completas de entrada
+ * ✅ Documentación exhaustiva
+ * ✅ Arquitectura limpia y escalable
+ * ✅ UX optimizada con funcionalidades híbridas
+ * ✅ Ready para demo y portfolio profesional
+ *
+ * 🚀 FASE 5 COMPLETADA - API HÍBRIDA TOTALMENTE FUNCIONAL
+ */

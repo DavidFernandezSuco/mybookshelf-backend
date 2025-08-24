@@ -519,4 +519,123 @@ public class GoogleBooksService {
 
         return configured;
     }
+
+    // ========================================
+    // MÉTODOS PARA FUNCIONALIDADES HÍBRIDAS - FASE 5
+    // ========================================
+
+    /**
+     * OBTENER SUGERENCIAS DE AUTOCOMPLETADO
+     *
+     * Método de apoyo para autocompletado inteligente en UI.
+     * Sigue el mismo patrón de validación y logging que otros métodos.
+     *
+     * @param query Término parcial para autocompletado
+     * @return Lista de títulos sugeridos desde Google Books
+     */
+    public List<String> getAutocompleteSuggestions(String query) {
+        // Validación de entrada (mismo patrón que searchBooks)
+        if (query == null || query.trim().isEmpty()) {
+            throw new IllegalArgumentException("Query cannot be empty");
+        }
+
+        System.out.println("💡 GoogleBooksService: Obteniendo sugerencias para '" + query + "'");
+
+        try {
+            List<GoogleBookDTO> results = googleBooksClient.searchBooks(query.trim());
+
+            // Extraer solo títulos (siguiendo patrón simple)
+            List<String> suggestions = results.stream()
+                    .map(GoogleBookDTO::getTitle)
+                    .filter(title -> title != null && !title.trim().isEmpty())
+                    .distinct()
+                    .limit(5) // Límite para autocompletado rápido
+                    .collect(java.util.stream.Collectors.toList());
+
+            System.out.println("✅ GoogleBooksService: " + suggestions.size() + " sugerencias obtenidas");
+            return suggestions;
+
+        } catch (Exception e) {
+            System.err.println("⚠️ Error obteniendo sugerencias: " + e.getMessage());
+            return List.of(); // Lista vacía en caso de error
+        }
+    }
+
+    /**
+     * VERIFICAR EXISTENCIA POR TÍTULO
+     *
+     * Método de apoyo para verificar si un libro existe en Google Books.
+     * Sigue el patrón simple de otros métodos de verificación.
+     *
+     * @param title Título del libro a verificar
+     * @return true si existe en Google Books, false en caso contrario
+     */
+    public boolean existsInGoogleBooks(String title) {
+        // Validación de entrada (mismo patrón)
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title cannot be empty");
+        }
+
+        System.out.println("🔍 GoogleBooksService: Verificando existencia de '" + title + "' en Google Books");
+
+        try {
+            List<GoogleBookDTO> results = googleBooksClient.searchBooks(title.trim());
+
+            // Buscar coincidencia exacta
+            boolean exists = results.stream()
+                    .anyMatch(book -> titlesSimilar(book.getTitle(), title.trim()));
+
+            System.out.println(exists ?
+                    "✅ GoogleBooksService: Libro encontrado en Google Books" :
+                    "ℹ️ GoogleBooksService: Libro NO encontrado en Google Books");
+
+            return exists;
+
+        } catch (Exception e) {
+            System.err.println("⚠️ Error verificando existencia: " + e.getMessage());
+            return false; // Asumir que no existe en caso de error
+        }
+    }
+
+    /**
+     * OBTENER SUGERENCIAS PARA CREACIÓN DE LIBRO
+     *
+     * Método de apoyo para sugerir libros desde Google Books cuando
+     * el usuario está creando uno nuevo. Sigue patrón de otros métodos.
+     *
+     * @param title Título del libro que se quiere crear
+     * @param author Autor del libro (opcional)
+     * @return Lista de sugerencias desde Google Books
+     */
+    public List<GoogleBookDTO> getCreationSuggestions(String title, String author) {
+        // Validación de entrada (mismo patrón)
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title cannot be empty");
+        }
+
+        // Construir query de búsqueda
+        String searchQuery = title.trim();
+        if (author != null && !author.trim().isEmpty()) {
+            searchQuery += " " + author.trim();
+        }
+
+        System.out.println("📝 GoogleBooksService: Obteniendo sugerencias de creación para '" + searchQuery + "'");
+
+        try {
+            List<GoogleBookDTO> results = googleBooksClient.searchBooks(searchQuery);
+
+            // Filtrar y limitar resultados (siguiendo patrón simple)
+            List<GoogleBookDTO> suggestions = results.stream()
+                    .filter(book -> book.getTitle() != null && !book.getTitle().trim().isEmpty())
+                    .limit(3) // Límite razonable para sugerencias
+                    .collect(java.util.stream.Collectors.toList());
+
+            System.out.println("✅ GoogleBooksService: " + suggestions.size() + " sugerencias de creación obtenidas");
+            return suggestions;
+
+        } catch (Exception e) {
+            System.err.println("⚠️ Error obteniendo sugerencias de creación: " + e.getMessage());
+            return List.of(); // Lista vacía en caso de error
+        }
+    }
 }
