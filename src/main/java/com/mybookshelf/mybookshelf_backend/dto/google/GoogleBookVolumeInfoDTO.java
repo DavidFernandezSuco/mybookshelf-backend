@@ -6,7 +6,7 @@ import java.util.List;
 /**
  * CLASE GoogleBookVolumeInfoDTO - Información detallada del libro
  *
- * SIGUIENDO PATRÓN DE TUS DTOs:
+ * SIGUIENDO PATRÓN DTOs:
  * - Solo campos que realmente necesitamos
  * - Nombres simples y claros
  * - Sin complejidades innecesarias

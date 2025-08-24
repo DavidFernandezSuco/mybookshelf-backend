@@ -10,8 +10,6 @@ import java.util.List;
  * - Sin validaciones complicadas
  * - Solo para recibir datos de Google Books
  * - Se mapea luego a nuestro BookDTO/Book entity
- *
- * NIVEL JUNIOR - Estructura simple y clara
  */
 public class GoogleBookDTO {
 
