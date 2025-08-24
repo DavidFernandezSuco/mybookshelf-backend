@@ -302,4 +302,195 @@ class BookServiceTest {
         // Verificar llamada al repository
         verify(bookRepository).findByStatus(targetStatus);
     }
+
+    /**
+     * TEST: Happy Path - Actualizar libro exitosamente
+     */
+    @Test
+    void shouldUpdateBookSuccessfully() {
+        // Given - Libro existente y datos actualizados
+        Long bookId = 1L;
+        Book existingBook = new Book();
+        existingBook.setId(bookId);
+        existingBook.setTitle("Old Title");
+        existingBook.setDescription("Old Description");
+        existingBook.setIsbn("1234567890");
+        existingBook.setTotalPages(300);
+
+        Book updatedBook = new Book();
+        updatedBook.setTitle("New Title");
+        updatedBook.setDescription("New Description");
+        updatedBook.setIsbn("0987654321");
+        // NO incluir currentPage para evitar delegación a updateBookProgress
+
+        Book savedBook = new Book();
+        savedBook.setId(bookId);
+        savedBook.setTitle("New Title");
+        savedBook.setDescription("New Description");
+        savedBook.setIsbn("0987654321");
+        savedBook.setTotalPages(300);
+
+        // Mocks
+        when(bookRepository.findById(bookId)).thenReturn(Optional.of(existingBook));
+        when(bookRepository.findByIsbn("0987654321")).thenReturn(Optional.empty());
+        when(bookRepository.save(any(Book.class))).thenReturn(savedBook);
+
+        // When - Actualizar libro
+        Book result = bookService.updateBook(bookId, updatedBook);
+
+        // Then - Verificar actualización
+        assertNotNull(result, "Updated book should not be null");
+        assertEquals("New Title", result.getTitle(), "Title should be updated");
+        assertEquals("New Description", result.getDescription(), "Description should be updated");
+        assertEquals("0987654321", result.getIsbn(), "ISBN should be updated");
+        assertEquals(300, result.getTotalPages(), "Total pages should be preserved");
+
+        verify(bookRepository).findById(bookId);
+        verify(bookRepository).save(any(Book.class));
+    }
+
+    /**
+     * TEST: Exception Path - Libro no encontrado
+     */
+    @Test
+    void shouldThrowBookNotFoundExceptionWhenUpdatingNonExistentBook() {
+        // Given - ID que no existe
+        Long nonExistentId = 999L;
+        Book updatedBook = new Book();
+        updatedBook.setTitle("New Title");
+
+        when(bookRepository.findById(nonExistentId)).thenReturn(Optional.empty());
+
+        // When & Then - Verificar excepción
+        BookNotFoundException exception = assertThrows(
+                BookNotFoundException.class,
+                () -> bookService.updateBook(nonExistentId, updatedBook),
+                "Should throw BookNotFoundException for non-existent book"
+        );
+
+        assertEquals("Book not found with id: 999", exception.getMessage(),
+                "Exception message should be descriptive");
+
+        verify(bookRepository).findById(nonExistentId);
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
+    /**
+     * TEST: Validation Logic - ISBN duplicado
+     */
+    @Test
+    void shouldThrowExceptionWhenUpdatingWithDuplicateIsbn() {
+        // Given - Libro existente y otro libro con ISBN que queremos usar
+        Long bookId = 1L;
+        Book existingBook = new Book();
+        existingBook.setId(bookId);
+        existingBook.setIsbn("1234567890");
+
+        Book otherBook = new Book();
+        otherBook.setId(2L);
+        otherBook.setIsbn("0987654321");
+
+        Book updatedBook = new Book();
+        updatedBook.setIsbn("0987654321"); // ISBN que ya existe
+
+        when(bookRepository.findById(bookId)).thenReturn(Optional.of(existingBook));
+        when(bookRepository.findByIsbn("0987654321")).thenReturn(Optional.of(otherBook));
+
+        // When & Then - Verificar excepción
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> bookService.updateBook(bookId, updatedBook),
+                "Should throw exception for duplicate ISBN"
+        );
+
+        assertTrue(exception.getMessage().contains("already exists"),
+                "Exception message should mention duplicate ISBN");
+
+        verify(bookRepository).findById(bookId);
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
+    /**
+     * TEST: Logic - Campos null se ignoran
+     */
+    @Test
+    void shouldIgnoreNullFieldsWhenUpdating() {
+        // Given - Libro existente con datos completos
+        Long bookId = 1L;
+        Book existingBook = new Book();
+        existingBook.setId(bookId);
+        existingBook.setTitle("Original Title");
+        existingBook.setDescription("Original Description");
+        existingBook.setIsbn("1234567890");
+        existingBook.setTotalPages(300);
+
+        // Updated book solo tiene título (otros campos null)
+        Book updatedBook = new Book();
+        updatedBook.setTitle("Updated Title");
+        // description = null, isbn = null, totalPages = null, currentPage = null (importante)
+
+        Book savedBook = new Book();
+        savedBook.setId(bookId);
+        savedBook.setTitle("Updated Title");
+        savedBook.setDescription("Original Description");
+        savedBook.setIsbn("1234567890");
+        savedBook.setTotalPages(300);
+
+        when(bookRepository.findById(bookId)).thenReturn(Optional.of(existingBook));
+        when(bookRepository.save(any(Book.class))).thenReturn(savedBook);
+
+        // When - Actualizar solo título
+        Book result = bookService.updateBook(bookId, updatedBook);
+
+        // Then - Solo título cambia, otros campos preservados
+        assertNotNull(result, "Updated book should not be null");
+        assertEquals("Updated Title", result.getTitle(), "Title should be updated");
+        assertEquals("Original Description", result.getDescription(), "Description should be preserved");
+        assertEquals("1234567890", result.getIsbn(), "ISBN should be preserved");
+        assertEquals(300, result.getTotalPages(), "Total pages should be preserved");
+
+        verify(bookRepository).findById(bookId);
+        verify(bookRepository).save(any(Book.class));
+    }
+
+    /**
+     * TEST: Integration - Delega a updateBookProgress cuando se actualiza currentPage
+     */
+    @Test
+    void shouldDelegateToUpdateProgressWhenCurrentPageProvided() {
+        // Given - Libro existente
+        Long bookId = 1L;
+        Book existingBook = new Book();
+        existingBook.setId(bookId);
+        existingBook.setTitle("Test Book");
+        existingBook.setStatus(BookStatus.READING);
+        existingBook.setTotalPages(300);
+        existingBook.setCurrentPage(100);
+
+        Book updatedBook = new Book();
+        updatedBook.setCurrentPage(200); // Solo actualizar progreso
+
+        Book progressUpdatedBook = new Book();
+        progressUpdatedBook.setId(bookId);
+        progressUpdatedBook.setTitle("Test Book");
+        progressUpdatedBook.setStatus(BookStatus.READING);
+        progressUpdatedBook.setTotalPages(300);
+        progressUpdatedBook.setCurrentPage(200);
+
+        when(bookRepository.findById(bookId)).thenReturn(Optional.of(existingBook));
+        when(bookRepository.save(any(Book.class))).thenReturn(progressUpdatedBook);
+
+        // When - Actualizar con currentPage
+        Book result = bookService.updateBook(bookId, updatedBook);
+
+        // Then - Debe usar lógica de updateBookProgress
+        assertNotNull(result, "Updated book should not be null");
+        assertEquals(200, result.getCurrentPage(), "Current page should be updated");
+
+        // Verificar que se llamó findById dos veces (una en updateBook, otra en updateBookProgress)
+        verify(bookRepository, times(2)).findById(bookId);
+        verify(bookRepository).save(any(Book.class));
+    }
+
+
 }

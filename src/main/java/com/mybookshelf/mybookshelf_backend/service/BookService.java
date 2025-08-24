@@ -238,4 +238,105 @@ public class BookService {
     public List<Book> getCurrentlyReadingBooks(BookStatus reading) {
         return bookRepository.findByStatus(BookStatus.READING);
     }
+
+    /**
+     * ACTUALIZAR LIBRO COMPLETO
+     *
+     * Siguiendo patrón de updateBookProgress() - actualiza campos de un libro existente.
+     * Útil para GoogleBooksService.enrichExistingBook() y futuros endpoints PUT.
+     *
+     * @param bookId ID del libro a actualizar
+     * @param updatedBook Book con los nuevos datos (campos null se ignoran)
+     * @return Book actualizado y guardado
+     */
+    public Book updateBook(Long bookId, Book updatedBook) {
+        // 1. Obtener libro existente (lanza excepción si no existe)
+        Book existingBook = bookRepository.findById(bookId)
+                .orElseThrow(() -> new BookNotFoundException("Book not found with id: " + bookId));
+
+        // 2. Actualizar solo campos que no son null (patrón que ya usas)
+
+        // INFORMACIÓN BÁSICA
+        if (updatedBook.getTitle() != null && !updatedBook.getTitle().trim().isEmpty()) {
+            existingBook.setTitle(updatedBook.getTitle().trim());
+        }
+
+        if (updatedBook.getDescription() != null) {
+            // Permitir vaciar descripción si se envía string vacío
+            existingBook.setDescription(updatedBook.getDescription().trim().isEmpty() ? null : updatedBook.getDescription().trim());
+        }
+
+        // ISBN - Validar unicidad como en createBook()
+        if (updatedBook.getIsbn() != null) {
+            String newIsbn = updatedBook.getIsbn().trim();
+            if (!newIsbn.isEmpty()) {
+                // Verificar que no existe en otro libro
+                Optional<Book> bookWithIsbn = bookRepository.findByIsbn(newIsbn);
+                if (bookWithIsbn.isPresent() && !bookWithIsbn.get().getId().equals(bookId)) {
+                    throw new RuntimeException("Book with ISBN " + newIsbn + " already exists");
+                }
+                existingBook.setIsbn(newIsbn);
+            } else {
+                existingBook.setIsbn(null); // Permitir vaciar ISBN
+            }
+        }
+
+        // INFORMACIÓN DE PUBLICACIÓN
+        if (updatedBook.getPublisher() != null) {
+            existingBook.setPublisher(updatedBook.getPublisher().trim().isEmpty() ? null : updatedBook.getPublisher().trim());
+        }
+
+        if (updatedBook.getPublishedDate() != null) {
+            existingBook.setPublishedDate(updatedBook.getPublishedDate());
+        }
+
+        // PÁGINAS - Validar lógica como en updateBookProgress()
+        if (updatedBook.getTotalPages() != null) {
+            if (updatedBook.getTotalPages() < 0) {
+                throw new RuntimeException("Total pages cannot be negative");
+            }
+
+            // Si ya tiene progreso, verificar que no sea menor que página actual
+            if (existingBook.getCurrentPage() != null && existingBook.getCurrentPage() > updatedBook.getTotalPages()) {
+                throw new RuntimeException("Total pages (" + updatedBook.getTotalPages() +
+                        ") cannot be less than current page (" + existingBook.getCurrentPage() + ")");
+            }
+
+            existingBook.setTotalPages(updatedBook.getTotalPages());
+        }
+
+        // PROGRESO - Solo actualizar si se proporciona
+        if (updatedBook.getCurrentPage() != null) {
+            // Usar la lógica existente de updateBookProgress para consistencia
+            return updateBookProgress(bookId, updatedBook.getCurrentPage());
+        }
+
+        // STATUS - Solo actualizar si se proporciona y es diferente
+        if (updatedBook.getStatus() != null && !updatedBook.getStatus().equals(existingBook.getStatus())) {
+            // Lógica de transición de estados (similar a updateBookProgress)
+            BookStatus oldStatus = existingBook.getStatus();
+            BookStatus newStatus = updatedBook.getStatus();
+
+            existingBook.setStatus(newStatus);
+
+            // Auto-establecer fechas según transiciones
+            if (oldStatus == BookStatus.WISHLIST && newStatus == BookStatus.READING) {
+                existingBook.setStartDate(LocalDate.now());
+            }
+
+            if (newStatus == BookStatus.FINISHED && existingBook.getFinishDate() == null) {
+                existingBook.setFinishDate(LocalDate.now());
+            }
+
+            if (newStatus != BookStatus.FINISHED) {
+                existingBook.setFinishDate(null); // Limpiar si ya no está terminado
+            }
+        }
+
+        // NOTA: No actualizamos relaciones (authors/genres) aquí
+        // Eso se manejaría en métodos específicos como updateBookAuthors(), etc.
+
+        // 3. Guardar cambios (igual que en tus otros métodos)
+        return bookRepository.save(existingBook);
+    }
 }
