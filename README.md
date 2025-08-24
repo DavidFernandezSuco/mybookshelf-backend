@@ -1,33 +1,48 @@
 # 📚 MyBookShelf Backend
 
-> Sistema de gestión de biblioteca personal con Spring Boot
+> Sistema de gestión de biblioteca personal con Spring Boot + Integración Google Books API
 
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![API Endpoints](https://img.shields.io/badge/API%20Endpoints-30%2B-blue.svg)](#api-endpoints)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Google Books API](https://img.shields.io/badge/Google%20Books%20API-Integrated-red.svg)](https://developers.google.com/books)
+[![API Endpoints](https://img.shields.io/badge/API%20Endpoints-40%2B-blue.svg)](#api-endpoints)
 [![Tests](https://img.shields.io/badge/Tests-Comprehensive-success.svg)](#testing)
 
 ## 🎯 Descripción
 
-**API REST completa** para gestión de biblioteca personal que demuestra capacidades backend avanzadas con Spring Boot. Permite gestionar libros, autores, géneros y análisis de lectura con lógica de negocio inteligente y **30+ endpoints funcionales**.
+API REST para gestión de biblioteca personal con Spring Boot. Incluye gestión de libros, autores, géneros, análisis de lectura e integración con Google Books API para búsqueda e importación externa.
 
 ## ✨ Funcionalidades
 
-- **📖 Gestión completa de libros** - CRUD con estados automáticos (WISHLIST → READING → FINISHED)
-- **👥 Autores y géneros** - Relaciones many-to-many con autocompletado
-- **📊 Dashboard analytics** - Estadísticas de lectura, progreso anual, tasas de completación
-- **🔍 Búsqueda avanzada** - Por título, autor y género con paginación
-- **📈 Seguimiento de progreso** - Actualización automática de estado al terminar libros
-- **⏱️ Sesiones de lectura** - Análisis temporal detallado
-- **🔐 Autenticación JWT** - Sistema de seguridad moderno
-- **🛡️ Manejo de errores** - Respuestas JSON profesionales
+### Core Features
+- **Gestión de libros** - CRUD con estados (WISHLIST, READING, FINISHED, ON_HOLD, ABANDONED)
+- **Autores y géneros** - Relaciones many-to-many
+- **Analytics** - Estadísticas de lectura y progreso
+- **Búsqueda** - Por título, autor y género con paginación
+- **Seguimiento de progreso** - Actualización automática de estado
+- **Sesiones de lectura** - Registro temporal de actividad
+
+### Google Books Integration
+- **Búsqueda externa** - Consulta libros en Google Books
+- **Importación** - Añade libros con datos completos automáticamente
+- **Enriquecimiento** - Actualiza libros existentes con metadatos
+- **Búsqueda híbrida** - Combina resultados locales y externos
+- **Autocompletado** - Sugerencias basadas en Google Books
+- **Detección de duplicados** - Previene libros repetidos
+
+### Seguridad y Calidad
+- **Autenticación JWT** - Sistema de seguridad
+- **Manejo de errores** - Respuestas JSON consistentes
+- **Testing** - JUnit 5 + Mockito con alta cobertura
 
 ## 🛠️ Tecnologías
 
-- **Framework:** Spring Boot 3.2.x
+- **Framework:** Spring Boot 3.5.4
 - **Lenguaje:** Java 21
 - **Base de Datos:** H2 (desarrollo) / PostgreSQL (producción)
 - **ORM:** Spring Data JPA
+- **Integración Externa:** Google Books API
+- **Cliente HTTP:** RestTemplate
 - **Seguridad:** Spring Security + JWT
 - **Testing:** JUnit 5 + Mockito
 - **Build:** Maven
@@ -37,6 +52,16 @@
 ### Prerrequisitos
 - Java 21 o superior
 - Maven 3.6+
+- Google Books API Key (opcional)
+
+### Configuración Google Books API (Opcional)
+```properties
+# application.properties
+google.books.api.key=TU_API_KEY_AQUI
+google.books.api.url=https://www.googleapis.com/books/v1/volumes
+google.books.timeout=5000
+google.books.max.results=10
+```
 
 ### Ejecutar el proyecto
 ```bash
@@ -48,33 +73,45 @@ cd mybookshelf-backend
 ./mvnw spring-boot:run
 
 # API disponible en http://localhost:8080
+# Swagger UI: http://localhost:8080/swagger-ui/index.html
 ```
 
 ### Verificar instalación
 ```bash
-# Probar endpoint principal
+# Endpoint principal
 curl http://localhost:8080/api/books
 
-# Obtener analytics
+# Google Books integration
+curl "http://localhost:8080/api/books/search-external?q=programming"
+
+# Analytics
 curl http://localhost:8080/api/analytics/dashboard
 ```
 
 ## 📖 API Endpoints
 
-### 🔹 **30+ Endpoints Funcionales**
-
-#### **BookController** - 7 endpoints
+### BookController - 10 endpoints
 | Endpoint | Método | Descripción |
 |----------|--------|-------------|
-| `/api/books` | GET | Obtener libros (paginado) |
+| `/api/books` | GET | Listar libros (paginado) |
 | `/api/books` | POST | Crear libro |
 | `/api/books/{id}` | GET | Obtener libro por ID |
 | `/api/books/{id}/progress` | PATCH | Actualizar progreso |
 | `/api/books/{id}` | DELETE | Eliminar libro |
-| `/api/books/search` | GET | Buscar libros |
+| `/api/books/search` | GET | Buscar libros locales |
 | `/api/books/status/{status}` | GET | Filtrar por estado |
+| `/api/books/search-external` | GET | Buscar en Google Books |
+| `/api/books/import-google` | POST | Importar desde Google Books |
+| `/api/books/{id}/enrich-google` | PATCH | Enriquecer con Google Books |
 
-#### **AuthorController** - 8 endpoints
+### Google Books Features
+| Endpoint | Método | Descripción |
+|----------|--------|-------------|
+| `/api/books/search-hybrid` | GET | Búsqueda local + externa |
+| `/api/books/autocomplete` | GET | Autocompletado |
+| `/api/books/suggestions` | GET | Sugerencias al crear |
+
+### AuthorController - 8 endpoints
 | Endpoint | Método | Descripción |
 |----------|--------|-------------|
 | `/api/authors` | GET | Listar autores (paginado) |
@@ -86,7 +123,7 @@ curl http://localhost:8080/api/analytics/dashboard
 | `/api/authors/autocomplete` | GET | Autocompletado UI |
 | `/api/authors/statistics/{id}` | GET | Estadísticas del autor |
 
-#### **GenreController** - 10 endpoints
+### GenreController - 10 endpoints
 | Endpoint | Método | Descripción |
 |----------|--------|-------------|
 | `/api/genres` | GET | Listar géneros (paginado) |
@@ -96,50 +133,55 @@ curl http://localhost:8080/api/analytics/dashboard
 | `/api/genres/{id}` | DELETE | Eliminar género |
 | `/api/genres/search` | GET | Buscar géneros |
 | `/api/genres/autocomplete` | GET | Autocompletado UI |
-| `/api/genres/ordered` | GET | Lista ordenada alfabéticamente |
-| `/api/genres/popular` | GET | Ranking de popularidad |
+| `/api/genres/ordered` | GET | Lista ordenada |
+| `/api/genres/popular` | GET | Ranking popularidad |
 | `/api/genres/stats` | GET | Estadísticas básicas |
 
-#### **AnalyticsController** - 5+ endpoints
+### AnalyticsController - 5 endpoints
 | Endpoint | Método | Descripción |
 |----------|--------|-------------|
 | `/api/analytics/dashboard` | GET | Estadísticas principales |
 | `/api/analytics/quick` | GET | Métricas rápidas |
 | `/api/analytics/yearly-progress` | GET | Progreso anual |
 | `/api/analytics/monthly-progress` | GET | Progreso mensual |
-| `/api/analytics/productivity` | GET | Estadísticas de productividad |
+| `/api/analytics/productivity` | GET | Estadísticas productividad |
 
-### Ejemplos con Postman
+### Ejemplos
 
-#### Crear libro
+#### Buscar en Google Books
+```bash
+GET /api/books/search-external?q=clean code
+```
+
+#### Importar libro
+```json
+POST /api/books/import-google
+{
+  "googleBooksId": "9aORjgEACAAJ",
+  "status": "WISHLIST"
+}
+```
+
+#### Búsqueda híbrida
+```bash
+GET /api/books/search-hybrid?q=programming&includeExternal=true
+```
+
+#### Crear libro tradicional
 ```json
 POST /api/books
 {
   "title": "Código Limpio",
   "totalPages": 464,
-  "status": "WISHLIST",
-  "description": "Manual de desarrollo de software artesanal"
+  "status": "WISHLIST"
 }
 ```
 
-#### Actualizar progreso
+#### Enriquecer libro existente
 ```json
-PATCH /api/books/1/progress
+PATCH /api/books/1/enrich-google
 {
-  "currentPage": 200
-}
-```
-
-#### Respuesta Analytics
-```json
-GET /api/analytics/dashboard
-{
-  "totalBooks": 25,
-  "booksReading": 3,
-  "booksFinished": 18,
-  "booksWishlist": 4,
-  "completionRate": 72.0,
-  "averagePages": 342.5
+  "searchQuery": "Clean Code Robert Martin"
 }
 ```
 
@@ -147,84 +189,94 @@ GET /api/analytics/dashboard
 
 ```
 src/main/java/com/mybookshelf/mybookshelf_backend/
-├── controller/     # Controladores REST (30+ endpoints)
-├── service/        # Lógica de negocio
+├── controller/     # REST Controllers
+├── service/        # Lógica de negocio + GoogleBooksService
+├── client/         # GoogleBooksClient (API externa)
 ├── repository/     # Acceso a datos JPA
 ├── model/          # Entidades (Book, Author, Genre, ReadingSession)
-├── dto/            # Objetos de transferencia
+├── dto/            # Data Transfer Objects
 ├── mapper/         # Mappers DTO ↔ Entity
 ├── exception/      # Excepciones personalizadas
-└── config/         # Configuración Spring Security
+└── config/         # Configuración Spring
 ```
 
 ### Características técnicas
-- **Arquitectura en capas** con separación de responsabilidades
-- **Patrón DTO** para transferencia de datos segura
-- **GlobalExceptionHandler** para manejo centralizado de errores
-- **Relaciones JPA** many-to-many bidireccionales optimizadas
-- **Lógica de negocio inteligente** con transiciones automáticas
-- **Security JWT** con autenticación moderna
+- Arquitectura en capas
+- Patrón DTO para transferencia de datos
+- Integración API externa con RestTemplate
+- GlobalExceptionHandler centralizado
+- Relaciones JPA many-to-many
+- Cliente HTTP con timeouts y error handling
+- Detección automática de duplicados
+- Autenticación JWT
 
 ## 🧪 Testing
 
-### **Testing Comprehensivo** con JUnit 5 + Mockito
-
-#### Ejecutar tests
+### Ejecutar tests
 ```bash
 # Todos los tests
 ./mvnw test
 
 # Tests específicos
 ./mvnw test -Dtest="BookServiceTest"
+./mvnw test -Dtest="GoogleBooksClientTest"
 
 # Coverage report
 ./mvnw test jacoco:report
 ```
 
-#### **BookServiceTest** - Testing completo con Mockito
-- ✅ Obtención exitosa por ID
-- ✅ BookNotFoundException para IDs inexistentes
-- ✅ Cambio automático de estado al completar libro
-- ✅ Validación de páginas máximas
-- ✅ Búsqueda y filtrado
-- ✅ Paginación de resultados
+### Tests implementados
 
-#### **AnalyticsServiceTest** - Testing de métricas
-- ✅ Cálculo de estadísticas dashboard
-- ✅ Porcentajes de progreso
-- ✅ Manejo de biblioteca vacía
-- ✅ Análisis temporal
+#### BookServiceTest - Unit tests con Mockito
+- Obtención por ID y manejo de excepciones
+- Cambio automático de estado al completar
+- Validaciones de progreso y páginas
+- Búsqueda y filtrado
+- Paginación
 
-#### **Integration Tests** - Testing E2E
-- ✅ Controllers con @WebMvcTest
-- ✅ Repository con @DataJpaTest
-- ✅ Security configuration
-- ✅ API endpoints completos
+#### GoogleBooksClientTest - Integration tests
+- Conexión con Google Books API
+- Búsqueda por título, autor e ISBN
+- Manejo de errores (timeout, respuesta inválida)
+- Validación de parámetros
+
+#### GoogleBooksServiceTest - Business logic tests
+- Mapeo GoogleBookDTO → Book entity
+- Detección de duplicados por ISBN/título
+- Importación completa desde Google Books
+- Enriquecimiento de libros existentes
+
+#### AnalyticsServiceTest - Analytics tests
+- Cálculo de estadísticas dashboard
+- Porcentajes de progreso
+- Manejo de biblioteca vacía
+- Análisis temporal
 
 ### Tecnologías de testing
-- **JUnit 5** para estructura de tests
-- **Mockito** para mocking de dependencies
-- **@ExtendWith(MockitoExtension.class)** para inyección limpia
-- **Given/When/Then** pattern para tests legibles
+- JUnit 5
+- Mockito para mocking
+- @SpringBootTest para integration tests
+- Given/When/Then pattern
+- Error scenario testing
 
 ## 🌟 Lógica de Negocio
 
-### Transiciones automáticas inteligentes
-- **Estado auto-actualizado** al completar libro (READING → FINISHED)
-- **Fechas automáticas** (startDate, finishDate) con lógica temporal
-- **Cálculo dinámico** de porcentajes de progreso
-- **Validaciones de negocio** (páginas no pueden exceder total)
+### Transiciones automáticas
+- Estado auto-actualizado al completar libro (READING → FINISHED)
+- Fechas automáticas (startDate, finishDate)
+- Cálculo dinámico de porcentajes de progreso
+- Validaciones (páginas no pueden exceder total)
 
-### Sistema de Analytics completo
-- **Dashboard principal** con métricas clave en tiempo real
-- **Análisis temporal** por año/mes con trends
-- **Estadísticas de productividad** (tasas completación/abandono)
-- **Quick stats** para widgets de UI
-- **Métricas por autor/género** para insights detallados
+### Sistema de Analytics
+- Dashboard con métricas clave
+- Análisis temporal por año/mes
+- Estadísticas de productividad
+- Quick stats para widgets
+- Métricas por autor/género
 
 ## 🛡️ Manejo de Errores
 
-**GlobalExceptionHandler** con respuestas JSON consistentes:
+GlobalExceptionHandler con respuestas JSON consistentes:
 ```json
 {
   "error": "BOOK_NOT_FOUND",
@@ -233,54 +285,34 @@ src/main/java/com/mybookshelf/mybookshelf_backend/
 }
 ```
 
-#### Tipos de errores manejados:
-- ✅ **Validation errors** (400 BAD_REQUEST)
-- ✅ **Not found errors** (404 NOT_FOUND)
-- ✅ **Business logic errors** (409 CONFLICT)
-- ✅ **Authentication errors** (401 UNAUTHORIZED)
-
-## 🎯 Valor Técnico del Proyecto
-
-Este proyecto demuestra:
-
-### **🔥 Skills Backend Avanzados**
-- **30+ REST endpoints** funcionales con documentación Swagger
-- **Arquitectura escalable** siguiendo principios SOLID
-- **Testing comprehensivo** con alta cobertura
-- **Security moderna** con JWT authentication
-- **Performance optimizada** con paginación y queries eficientes
-
-### **💼 Ready for Production**
-- **Error handling profesional** con responses consistentes
-- **Validaciones robustas** en todas las capas
-- **Database design** optimizado con índices y relaciones
-- **Docker ready** con profiles de desarrollo/producción
-- **CI/CD friendly** con Maven y testing automatizado
-
-### **📈 Escalabilidad**
-- **Microservices ready** con controllers independientes
-- **Event-driven architecture** preparada para extensiones
-- **Analytics engine** base para machine learning
-- **API versioning** structure implementada
+Tipos de errores:
+- Validation errors (400 BAD_REQUEST)
+- Not found errors (404 NOT_FOUND)
+- Business logic errors (409 CONFLICT)
+- Authentication errors (401 UNAUTHORIZED)
 
 ## 🚀 Quick Demo
 
+### Demo con Google Books
 ```bash
-# 1. Crear libro
-curl -X POST http://localhost:8080/api/books \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Clean Code","totalPages":464,"status":"READING"}'
+# 1. Buscar en Google Books
+curl "http://localhost:8080/api/books/search-external?q=clean+code"
 
-# 2. Actualizar progreso
+# 2. Importar libro
+curl -X POST http://localhost:8080/api/books/import-google \
+  -H "Content-Type: application/json" \
+  -d '{"googleBooksId":"9aORjgEACAAJ","status":"READING"}'
+
+# 3. Actualizar progreso
 curl -X PATCH http://localhost:8080/api/books/1/progress \
   -H "Content-Type: application/json" \
   -d '{"currentPage":232}'
 
-# 3. Ver analytics
-curl http://localhost:8080/api/analytics/dashboard
+# 4. Búsqueda híbrida
+curl "http://localhost:8080/api/books/search-hybrid?q=programming&includeExternal=true"
 
-# 4. Buscar libros
-curl "http://localhost:8080/api/books/search?q=Clean"
+# 5. Ver analytics
+curl http://localhost:8080/api/analytics/dashboard
 ```
 
 ## 👨‍💻 Autor
@@ -292,4 +324,4 @@ curl "http://localhost:8080/api/books/search?q=Clean"
 
 ---
 
-*Proyecto desarrollado como demostración de capacidades **backend avanzadas** con Spring Boot*
+*API REST con integración Google Books desarrollada con Spring Boot*
