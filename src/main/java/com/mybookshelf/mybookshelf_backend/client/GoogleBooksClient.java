@@ -240,6 +240,11 @@ public class GoogleBooksClient {
      * Método privado para construir la URL con parámetros
      */
     private String buildSearchUrl(String query, int maxResults) {
+        // ✅ AÑADIR VALIDACIÓN AQUÍ:
+        if (query == null || query.trim().isEmpty()) {
+            throw new IllegalArgumentException("Query cannot be null or empty");
+        }
+
         StringBuilder url = new StringBuilder(apiUrl);
         url.append("?q=").append(query.replace(" ", "+"));
         url.append("&key=").append(apiKey);

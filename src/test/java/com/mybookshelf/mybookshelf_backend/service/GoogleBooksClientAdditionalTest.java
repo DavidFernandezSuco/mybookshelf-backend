@@ -65,4 +65,3 @@ public class GoogleBooksClientAdditionalTest {
         System.out.println("✅ Problematic query handling works gracefully");
     }
 }
-}
