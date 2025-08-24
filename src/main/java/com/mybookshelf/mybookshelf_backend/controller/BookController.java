@@ -437,39 +437,4 @@ public class BookController {
         public void setGoogleBooksId(String googleBooksId) { this.googleBooksId = googleBooksId; }
     }
 
-
-    /*
-     * NOTAS PARA PORTFOLIO JUNIOR:
-     *
-     * 1. ✅ ENDPOINTS FUNCIONALES:
-     *    - Todos los endpoints usan métodos que EXISTEN en BookService
-     *    - Sin métodos faltantes o no implementados
-     *    - API lista para testear inmediatamente
-     *
-     * 2. ✅ BUENAS PRÁCTICAS:
-     *    - Códigos HTTP correctos (200, 201, 204, 400)
-     *    - Validación de entrada
-     *    - Manejo de conversiones Entity ↔ DTO
-     *    - Documentación clara
-     *
-     * 3. ✅ DEMOSTRABLE:
-     *    - CRUD completo para libros
-     *    - Búsqueda funcional
-     *    - Filtros por estado
-     *    - Actualización de progreso (feature principal)
-     *
-     * 4. 🎯 PARA EXPANDIR DESPUÉS:
-     *    - Agregar métodos PUT para actualización completa
-     *    - Endpoints de estadísticas
-     *    - Validaciones más complejas
-     *    - Manejo de errores más sofisticado
-     *
-     * 5. 📊 VALOR PARA EMPLOYERS:
-     *    - Demuestra conocimiento de REST APIs
-     *    - Arquitectura limpia Service → Controller
-     *    - Manejo correcto de DTOs y mappers
-     *    - Código listo para producción básica
-     *
-     * ¡Este controller funcionará inmediatamente con tu Service actual! 🚀
-     */
 }
